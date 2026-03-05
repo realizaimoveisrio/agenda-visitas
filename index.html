@@ -1,117 +1,86 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Agenda de Visitas</title>
 
 <style>
 
 body{
 font-family:Arial;
+background:#0f0f0f;
+color:white;
 margin:0;
-background:#eef2f7;
+padding:20px;
 }
 
-header{
-background:#0b3a66;
-color:white;
-padding:15px;
+h1{
 text-align:center;
 }
 
-.header-buttons{
-margin-top:10px;
-display:flex;
-justify-content:center;
-gap:10px;
-flex-wrap:wrap;
-}
-
-button{
-padding:8px 12px;
+#notificacao{
+display:block;
+margin:auto;
+margin-bottom:20px;
+padding:10px 20px;
+background:gold;
 border:none;
-border-radius:6px;
-cursor:pointer;
+border-radius:8px;
 font-weight:bold;
+cursor:pointer;
 }
 
-.board{
+.calendario{
 display:flex;
-gap:10px;
-padding:10px;
+gap:20px;
 overflow-x:auto;
 }
 
-.col{
-background:#0b3a66;
-color:white;
+.dia{
+min-width:270px;
+background:#1d1d1d;
 padding:10px;
-border-radius:8px;
-min-width:220px;
+border-radius:10px;
+}
+
+.dia.hoje{
+border:3px solid gold;
 }
 
 .card{
-background:white;
-color:black;
-padding:8px;
-margin-bottom:8px;
-border-radius:6px;
-font-size:13px;
 display:flex;
 justify-content:space-between;
-}
-
-.card.done{
-opacity:0.4;
-}
-
-.actions{
-display:flex;
-flex-direction:column;
-cursor:pointer;
-font-size:18px;
-}
-
-.modal,.modal-alerta{
-position:fixed;
-inset:0;
-background:rgba(0,0,0,0.8);
-display:none;
-align-items:center;
-justify-content:center;
-z-index:9999;
-}
-
-.modal-box{
-background:white;
-padding:25px;
-border-radius:10px;
-width:90%;
-max-width:400px;
-}
-
-.modal-box input,
-.modal-box textarea{
-width:100%;
+background:#2a2a2a;
 padding:10px;
+border-radius:8px;
 margin-bottom:10px;
 }
 
-.alerta-box{
-background:#c40000;
-color:white;
-padding:30px;
-border-radius:10px;
-text-align:center;
-font-size:20px;
+.card.visitado{
+opacity:0.4;
 }
 
-.alerta-box button{
-margin-top:15px;
-background:white;
-color:#c40000;
+.info{
+display:flex;
+flex-direction:column;
+gap:3px;
+font-size:14px;
+}
+
+.icones{
+display:flex;
+flex-direction:column;
+gap:8px;
 font-size:18px;
+}
+
+.icones span{
+cursor:pointer;
+}
+
+.icones a{
+text-decoration:none;
 }
 
 </style>
@@ -119,306 +88,174 @@ font-size:18px;
 
 <body>
 
-<header>
+<h1>Agenda de Visitas</h1>
 
-<h2>Agenda de Visitas</h2>
+<button id="notificacao">🔔 Ativar notificações</button>
 
-<div class="header-buttons">
-
-<button onclick="semanaAnterior()">⬅ Semana Anterior</button>
-
-<button onclick="semanaProxima()">Próxima Semana ➡</button>
-
-<button onclick="ativarNotificacao()">🔔 Ativar Notificação</button>
-
-</div>
-
-</header>
-
-<div class="board" id="board"></div>
-
-<div class="modal" id="modal">
-
-<div class="modal-box">
-
-<h3>Agendar Visita</h3>
-
-<input type="hidden" id="dataSelecionada">
-
-<input id="nome" placeholder="Nome do Cliente">
-
-<input id="contato" placeholder="Telefone (DDD+número)">
-
-<input id="imovel" placeholder="Imóvel">
-
-<input id="hora" type="time">
-
-<input id="despertar" type="number" placeholder="Despertar minutos antes">
-
-<textarea id="obs" placeholder="Observação"></textarea>
-
-<button onclick="salvar()">Salvar</button>
-<button onclick="fecharModal()">Cancelar</button>
-
-</div>
-</div>
-
-<div class="modal-alerta" id="modalAlerta">
-
-<div class="alerta-box">
-
-🔔 VISITA CHEGANDO
-
-<br><br>
-
-Cliente: <b id="alertaCliente"></b>
-
-<br>
-
-Imóvel: <b id="alertaImovel"></b>
-
-<br><br>
-
-<button onclick="pararAlarme()">OK</button>
-
-</div>
-</div>
+<div class="calendario" id="calendario"></div>
 
 <script>
 
-const dias=["Seg","Ter","Qua","Qui","Sex","Sab"];
+let visitas=[
 
-let semanaOffset=0;
-let visitas=JSON.parse(localStorage.getItem("visitas")) || [];
-let alarmes={};
+{
+id:1,
+data:"2026-03-05",
+cliente:"João Silva",
+telefone:"5521999999999",
+imovel:"Rua das Flores 120",
+hora:"14:00",
+alerta:30,
+obs:"Cliente interessado em financiamento",
+visitado:false
+},
 
-let audio=new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
-
-function salvarLocal(){
-localStorage.setItem("visitas",JSON.stringify(visitas));
+{
+id:2,
+data:"2026-03-05",
+cliente:"Maria Souza",
+telefone:"5521988888888",
+imovel:"Av Brasil 500",
+hora:"16:00",
+alerta:20,
+obs:"Levar chave do portão",
+visitado:false
 }
 
-function inicioSemana(){
+]
 
-let hoje=new Date();
-let dia=hoje.getDay();
+function render(){
 
-let segunda=new Date(hoje);
+const calendario=document.getElementById("calendario")
+calendario.innerHTML=""
 
-segunda.setDate(hoje.getDate()-(dia===0?6:dia-1)+(semanaOffset*7));
-segunda.setHours(0,0,0,0);
+const hoje=new Date().toISOString().slice(0,10)
 
-return segunda;
+const dias=[...new Set(visitas.map(v=>v.data))]
 
+dias.forEach(data=>{
+
+const coluna=document.createElement("div")
+coluna.className="dia"
+
+if(data===hoje){
+coluna.classList.add("hoje")
 }
 
-function montarBoard(){
+coluna.innerHTML="<h3>"+data.split("-").reverse().join("/")+"</h3>"
 
-let board=document.getElementById("board");
-board.innerHTML="";
+visitas.filter(v=>v.data===data).forEach(v=>{
 
-let inicio=inicioSemana();
+const card=document.createElement("div")
+card.className="card"
 
-dias.forEach((d,i)=>{
-
-let data=new Date(inicio);
-data.setDate(inicio.getDate()+i);
-
-let dataStr=data.toISOString().split("T")[0];
-
-let col=document.createElement("div");
-col.className="col";
-
-col.innerHTML=`
-<h3>${d}<br><small>${data.toLocaleDateString()}</small></h3>
-
-<div id="dia-${dataStr}"></div>
-
-<button onclick="abrirModal('${dataStr}')">+ Agendar</button>
-`;
-
-board.appendChild(col);
-
-});
-
-renderizar();
-
+if(v.visitado){
+card.classList.add("visitado")
 }
 
-function renderizar(){
+card.innerHTML=`
 
-document.querySelectorAll("[id^=dia-]").forEach(d=>d.innerHTML="");
+<div class="info">
 
-visitas.forEach(v=>{
-
-let el=document.getElementById("dia-"+v.data);
-
-if(!el) return;
-
-let whatsapp=v.contato
-? `<a href="https://wa.me/${v.contato}" target="_blank">📲</a>`
-:"";
-
-el.innerHTML+=`
-
-<div class="card ${v.concluida?'done':''}">
-
-<div>
-
-<b>${v.hora}</b><br>
-${v.nome}<br>
-${v.imovel}<br>
-${whatsapp}
+<div><b>👤 Cliente:</b> ${v.cliente}</div>
+<div><b>📞 Telefone:</b> ${v.telefone}</div>
+<div><b>🏠 Imóvel:</b> ${v.imovel}</div>
+<div><b>⏰ Hora:</b> ${v.hora}</div>
+<div><b>⏱ Avisar:</b> ${v.alerta} min antes</div>
+<div><b>📝 Obs:</b> ${v.obs}</div>
 
 </div>
 
-<div class="actions">
+<div class="icones">
 
-<span onclick="concluir(${v.id})">✔</span>
-<span onclick="excluir(${v.id})">🗑</span>
+<a href="https://wa.me/${v.telefone}" target="_blank">💬</a>
+
+<span onclick="toggleVisitado(${v.id})">✔️</span>
+
+<span onclick="editar(${v.id})">✏️</span>
+
+<span onclick="remover(${v.id})">🗑️</span>
 
 </div>
+`
 
-</div>
+coluna.appendChild(card)
 
-`;
+})
 
-});
+calendario.appendChild(coluna)
 
-}
-
-function abrirModal(data){
-modal.style.display="flex";
-dataSelecionada.value=data;
-}
-
-function fecharModal(){
-modal.style.display="none";
-}
-
-function salvar(){
-
-let v={
-id:Date.now(),
-nome:nome.value,
-contato:contato.value,
-imovel:imovel.value,
-hora:hora.value,
-obs:obs.value,
-data:dataSelecionada.value,
-despertar:despertar.value,
-concluida:false
-};
-
-visitas.push(v);
-
-salvarLocal();
-
-fecharModal();
-
-renderizar();
+})
 
 }
 
-function excluir(id){
+function toggleVisitado(id){
 
-visitas=visitas.filter(v=>v.id!==id);
+const v=visitas.find(x=>x.id===id)
 
-salvarLocal();
+v.visitado=!v.visitado
 
-renderizar();
-
-}
-
-function concluir(id){
-
-visitas.forEach(v=>{
-if(v.id===id)v.concluida=!v.concluida;
-});
-
-salvarLocal();
-
-renderizar();
+render()
 
 }
 
-function semanaAnterior(){
-semanaOffset--;
-montarBoard();
+function remover(id){
+
+visitas=visitas.filter(v=>v.id!==id)
+
+render()
+
 }
 
-function semanaProxima(){
-semanaOffset++;
-montarBoard();
+function editar(id){
+
+const v=visitas.find(x=>x.id===id)
+
+const cliente=prompt("Cliente:",v.cliente)
+const telefone=prompt("Telefone:",v.telefone)
+const imovel=prompt("Imóvel:",v.imovel)
+const hora=prompt("Hora:",v.hora)
+const alerta=prompt("Minutos antes:",v.alerta)
+const obs=prompt("Observação:",v.obs)
+
+if(cliente)v.cliente=cliente
+if(telefone)v.telefone=telefone
+if(imovel)v.imovel=imovel
+if(hora)v.hora=hora
+if(alerta)v.alerta=alerta
+if(obs)v.obs=obs
+
+render()
+
 }
 
-function ativarNotificacao(){
+render()
+
+document.getElementById("notificacao").onclick=function(){
 
 if(Notification.permission==="granted"){
-alert("Notificações já ativadas");
-return;
+
+new Notification("Notificações ativadas")
+
 }
+
+else if(Notification.permission!=="denied"){
 
 Notification.requestPermission().then(p=>{
+
 if(p==="granted"){
-alert("Notificações ativadas!");
-}
-});
+
+new Notification("Notificações ativadas")
 
 }
 
-function verificarAlarmes(){
-
-let agora=new Date();
-
-visitas.forEach(v=>{
-
-if(!v.despertar||v.concluida)return;
-
-if(alarmes[v.id])return;
-
-let dataHora=new Date(v.data+"T"+v.hora);
-
-dataHora.setMinutes(dataHora.getMinutes()-v.despertar);
-
-if(agora>=dataHora){
-
-alarmes[v.id]=true;
-
-audio.play();
-
-alertaCliente.innerText=v.nome;
-alertaImovel.innerText=v.imovel;
-
-modalAlerta.style.display="flex";
-
-if(Notification.permission==="granted"){
-new Notification("Visita chegando",{
-body:v.nome+" - "+v.imovel
-});
-}
+})
 
 }
 
-});
-
 }
-
-function pararAlarme(){
-
-audio.pause();
-audio.currentTime=0;
-
-modalAlerta.style.display="none";
-
-}
-
-setInterval(verificarAlarmes,15000);
-
-montarBoard();
 
 </script>
 
 </body>
-<!-- update -->
 </html>
