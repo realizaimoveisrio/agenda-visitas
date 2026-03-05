@@ -6,6 +6,7 @@
 <title>Agenda Realiza Online</title>
 
 <script type="module">
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -113,7 +114,7 @@ visitasOrdenadas.forEach(v=>{
 
 if(!v.data) return;
 
-const dataVisita = new Date(v.data);
+const dataVisita = new Date(v.data+"T00:00:00");
 
 if(dataVisita < inicioSemana || dataVisita > fimSemana) return;
 
@@ -211,17 +212,23 @@ alarmTocando=false;
 },5000);
 
 document.getElementById("alertaNome").innerText=v.nome;
-
 document.getElementById("alertaImovel").innerText=v.imovel;
 
 document.getElementById("modalAlerta").style.display="flex";
+
+if(Notification.permission==="granted"){
+
+new Notification("Visita chegando",{
+body:v.nome+" - "+v.imovel
+});
+
+}
 
 }
 
 window.pararAlarme=()=>{
 
 audio.pause();
-
 audio.currentTime=0;
 
 document.getElementById("modalAlerta").style.display="none";
@@ -230,14 +237,26 @@ alarmTocando=false;
 
 }
 
+window.ativarNotificacoes=async()=>{
+
+if(!("Notification" in window)){
+alert("Seu navegador não suporta notificações");
+return;
+}
+
+const perm = await Notification.requestPermission();
+
+if(perm==="granted"){
+alert("Notificações ativadas");
+}
+
+}
+
 window.abrirWhatsapp=(numero)=>{
 
 if(!numero){
-
 alert("Número não cadastrado");
-
 return;
-
 }
 
 const numeroLimpo = numero.replace(/\D/g,'');
@@ -253,7 +272,6 @@ montarBoard();
 window.semanaAnterior=()=>{
 
 offsetSemana--;
-
 montarBoard();
 
 };
@@ -261,7 +279,6 @@ montarBoard();
 window.semanaProxima=()=>{
 
 offsetSemana++;
-
 montarBoard();
 
 };
@@ -273,15 +290,10 @@ dataSelecionada.value=data;
 editId.value=visita?visita.id:"";
 
 nome.value=visita?visita.nome:"";
-
 contato.value=visita?visita.contato:"";
-
 imovel.value=visita?visita.imovel:"";
-
 hora.value=visita?visita.hora:"";
-
 obs.value=visita?visita.obs:"";
-
 despertar.value=visita?visita.despertar:"";
 
 modal.style.display="flex";
@@ -297,19 +309,12 @@ const id=editId.value;
 const visita={
 
 nome:nome.value,
-
 contato:contato.value,
-
 imovel:imovel.value,
-
 hora:hora.value,
-
 obs:obs.value,
-
 data:dataSelecionada.value,
-
 despertar:despertar.value,
-
 concluida:false
 
 };
@@ -353,7 +358,6 @@ cacheVisitas=[];
 snapshot.forEach(docSnap=>{
 
 const v=docSnap.data();
-
 v.id=docSnap.id;
 
 cacheVisitas.push(v);
@@ -367,6 +371,7 @@ renderizarVisitas();
 setInterval(verificarAlarmes,15000);
 
 });
+
 </script>
 
 <style>
@@ -413,8 +418,8 @@ Agenda Realiza Online
 <div>
 
 <button onclick="semanaAnterior()">⬅</button>
-
 <button onclick="semanaProxima()">➡</button>
+<button onclick="ativarNotificacoes()">🔔 Ativar Notificações</button>
 
 </div>
 
@@ -429,13 +434,10 @@ Agenda Realiza Online
 <h3>Visita</h3>
 
 <input type="hidden" id="dataSelecionada">
-
 <input type="hidden" id="editId">
 
 <input id="nome" placeholder="Nome do Cliente">
-
 <input id="contato" placeholder="Contato">
-
 <input id="imovel" placeholder="Imóvel">
 
 <input id="hora" type="time">
@@ -445,7 +447,6 @@ Agenda Realiza Online
 <textarea id="obs" placeholder="Observação"></textarea>
 
 <button onclick="salvarVisita()">Salvar</button>
-
 <button onclick="fecharModal()">Cancelar</button>
 
 </div>
@@ -459,7 +460,6 @@ Agenda Realiza Online
 🔔 VISITA CHEGANDO!<br><br>
 
 Cliente: <b id="alertaNome"></b><br>
-
 Imóvel: <b id="alertaImovel"></b><br><br>
 
 <button onclick="pararAlarme()">OK</button>
