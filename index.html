@@ -41,12 +41,16 @@ return;
 Notification.requestPermission().then(permission=>{
 
 if(permission==="granted"){
+
 new Notification("Agenda Realiza",{
 body:"Notificações ativadas com sucesso!",
 icon:"https://cdn-icons-png.flaticon.com/512/684/684908.png"
 });
+
 }else{
+
 alert("Permissão de notificação negada.");
+
 }
 
 });
@@ -56,10 +60,12 @@ alert("Permissão de notificação negada.");
 function notificar(titulo, mensagem){
 
 if(Notification.permission==="granted"){
+
 new Notification(titulo,{
 body:mensagem,
 icon:"https://cdn-icons-png.flaticon.com/512/684/684908.png"
 });
+
 }
 
 }
@@ -128,6 +134,7 @@ document.querySelectorAll(".list").forEach(l=>l.innerHTML="");
 
 const inicioSemana = getInicioSemana();
 const fimSemana = new Date(inicioSemana);
+
 fimSemana.setDate(inicioSemana.getDate()+6);
 
 const visitasOrdenadas=[...cacheVisitas].sort((a,b)=>{
@@ -143,9 +150,9 @@ visitasOrdenadas.forEach(v=>{
 
 if(!v.data) return;
 
-const dataVisita = new Date(v.data+"T00:00");
+const dataVisita = new Date(v.data + "T00:00");
 
-if(dataVisita >= inicioSemana && dataVisita <= fimSemana){
+if(dataVisita < inicioSemana || dataVisita > fimSemana) return;
 
 const container = document.getElementById("dia-"+v.data);
 
@@ -172,7 +179,6 @@ ${v.nome}<br>
 
 <span onclick="abrirWhatsapp('${v.contato}')">💬</span>
 <span onclick="copiarVisita(${JSON.stringify(v).replace(/"/g,'&quot;')})">📋</span>
-
 <span onclick="abrirModal('${v.data}', ${JSON.stringify(v).replace(/"/g,'&quot;')})">✏️</span>
 
 <span onclick="marcarConcluida('${v.id}', ${v.concluida})">
@@ -186,8 +192,6 @@ ${v.concluida ? '🔵' : '✔️'}
 </div>
 
 `;
-
-}
 
 }
 
