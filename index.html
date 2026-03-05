@@ -1,86 +1,348 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
 <meta charset="UTF-8">
-<title>Agenda de Visitas</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda Realiza Online</title>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+apiKey: "SUA_API_KEY",
+authDomain: "agenda-realiza.firebaseapp.com",
+projectId: "agenda-realiza",
+storageBucket: "agenda-realiza.firebasestorage.app",
+messagingSenderId: "683247219357",
+appId: "1:683247219357:web:749a3c41c3c2645cb01a74"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const dias = ["Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
+let offsetSemana = 0;
+let cacheVisitas = [];
+
+function getInicioSemana(){
+const hoje = new Date();
+const dia = hoje.getDay();
+const segunda = new Date(hoje);
+segunda.setDate(hoje.getDate() - (dia === 0 ? 6 : dia - 1) + (offsetSemana * 7));
+segunda.setHours(0,0,0,0);
+return segunda;
+}
+
+function montarBoard(){
+
+const board = document.getElementById("board");
+board.innerHTML = "";
+
+const inicioSemana = getInicioSemana();
+const hojeStr = new Date().toISOString().split("T")[0];
+
+dias.forEach((diaNome,i)=>{
+
+const data = new Date(inicioSemana);
+data.setDate(inicioSemana.getDate()+i);
+const dataStr = data.toISOString().split("T")[0];
+
+const col = document.createElement("div");
+col.className="col";
+
+if(dataStr===hojeStr){
+col.classList.add("hoje");
+}
+
+col.innerHTML=`
+<h3>${diaNome}<br><small>${data.toLocaleDateString()}</small></h3>
+<div class="list" id="dia-${dataStr}"></div>
+<button class="btn-agendar" onclick="abrirModal('${dataStr}')">+ Agendar</button>
+`;
+
+board.appendChild(col);
+
+});
+
+renderizarVisitas();
+
+}
+
+function renderizarVisitas(){
+
+document.querySelectorAll(".list").forEach(l=>l.innerHTML="");
+
+const inicioSemana=getInicioSemana();
+const fimSemana=new Date(inicioSemana);
+fimSemana.setDate(inicioSemana.getDate()+6);
+
+const visitasOrdenadas=[...cacheVisitas].sort((a,b)=>{
+const dataA=new Date(a.data+"T"+a.hora);
+const dataB=new Date(b.data+"T"+b.hora);
+return dataA-dataB;
+});
+
+visitasOrdenadas.forEach(v=>{
+
+if(!v.data)return;
+
+const dataVisita=new Date(v.data);
+
+if(dataVisita<inicioSemana||dataVisita>fimSemana)return;
+
+const container=document.getElementById("dia-"+v.data);
+
+if(container){
+
+container.innerHTML+=`
+
+<div class="card ${v.concluida ? 'done':''}">
+
+<div>
+<b>${v.hora}</b><br>
+${v.nome}<br>
+<small>${v.contato||"-"}</small><br>
+<small>${v.imovel||"-"}</small><br>
+<small>${v.obs||"-"}</small>
+</div>
+
+<div class="card-actions">
+
+<span onclick="abrirWhatsapp('${v.contato}')" title="WhatsApp">
+
+<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 32 32">
+
+<path fill="#25D366"
+d="M16 .396C7.163.396 0 7.56 0 16.396c0 2.822.736 5.576 2.134 8.01L0 32l7.818-2.05a15.94 15.94 0 0 0 8.182 2.244c8.837 0 16-7.164 16-16S24.837.396 16 .396z"/>
+
+<path fill="#FFF"
+d="M24.52 19.548c-.375-.188-2.217-1.094-2.56-1.219-.344-.125-.594-.188-.844.188s-.969 1.219-1.188 1.469c-.219.25-.438.281-.813.094-.375-.188-1.586-.584-3.02-1.861-1.115-.995-1.867-2.223-2.086-2.598-.219-.375-.023-.578.164-.766.168-.167.375-.438.563-.656.188-.219.25-.375.375-.625.125-.25.063-.469-.031-.656-.094-.188-.844-2.031-1.156-2.781-.305-.734-.617-.633-.844-.645l-.719-.012c-.25 0-.656.094-1 .469-.344.375-1.312 1.281-1.312 3.125s1.344 3.625 1.531 3.875c.188.25 2.645 4.039 6.41 5.664.895.387 1.594.617 2.137.789.898.285 1.715.244 2.361.148.719-.107 2.217-.906 2.529-1.781.313-.875.313-1.625.219-1.781-.094-.156-.344-.25-.719-.438z"/>
+
+</svg>
+
+</span>
+
+<span onclick="abrirModal('${v.data}', ${JSON.stringify(v).replace(/"/g,'&quot;')})">✏️</span>
+
+<span onclick="marcarConcluida('${v.id}', ${v.concluida})">
+${v.concluida ? '🔵' : '✔️'}
+</span>
+
+<span onclick="excluir('${v.id}')">🗑️</span>
+
+</div>
+
+</div>
+
+`;
+
+}
+
+});
+
+}
+
+window.abrirWhatsapp=(numero)=>{
+
+if(!numero){
+alert("Número não cadastrado");
+return;
+}
+
+const numeroLimpo=numero.replace(/\D/g,'');
+
+window.open(`https://wa.me/${numeroLimpo}`,"_blank");
+
+};
+
+window.addEventListener("DOMContentLoaded",()=>{
+
+montarBoard();
+
+window.semanaAnterior=()=>{
+offsetSemana--;
+montarBoard();
+};
+
+window.semanaProxima=()=>{
+offsetSemana++;
+montarBoard();
+};
+
+window.abrirModal=(data,visita=null)=>{
+
+dataSelecionada.value=data;
+
+editId.value=visita?visita.id:"";
+
+nome.value=visita?visita.nome:"";
+contato.value=visita?visita.contato:"";
+imovel.value=visita?visita.imovel:"";
+hora.value=visita?visita.hora:"";
+obs.value=visita?visita.obs:"";
+
+modal.style.display="flex";
+
+};
+
+window.fecharModal=()=>modal.style.display="none";
+
+window.salvarVisita=async()=>{
+
+const id=editId.value;
+
+const visita={
+nome:nome.value,
+contato:contato.value,
+imovel:imovel.value,
+hora:hora.value,
+obs:obs.value,
+data:dataSelecionada.value,
+concluida:false
+};
+
+if(id){
+await updateDoc(doc(db,"visitas",id),visita);
+}else{
+await addDoc(collection(db,"visitas"),visita);
+}
+
+fecharModal();
+
+};
+
+window.excluir=async(id)=>{
+if(confirm("Excluir visita?"))
+await deleteDoc(doc(db,"visitas",id));
+};
+
+window.marcarConcluida=async(id,atual)=>{
+await updateDoc(doc(db,"visitas",id),{concluida:!atual});
+};
+
+onSnapshot(collection(db,"visitas"),(snapshot)=>{
+
+cacheVisitas=[];
+
+snapshot.forEach(docSnap=>{
+const v=docSnap.data();
+v.id=docSnap.id;
+cacheVisitas.push(v);
+});
+
+renderizarVisitas();
+
+});
+
+});
+
+</script>
 
 <style>
 
 body{
-font-family:Arial;
-background:#0f0f0f;
-color:white;
 margin:0;
-padding:20px;
+font-family:Arial;
+background:#e9eef5;
 }
 
-h1{
+header{
+background:#0b3a66;
+color:#fff;
+padding:15px;
 text-align:center;
-}
-
-#notificacao{
-display:block;
-margin:auto;
-margin-bottom:20px;
-padding:10px 20px;
-background:gold;
-border:none;
-border-radius:8px;
 font-weight:bold;
-cursor:pointer;
 }
 
-.calendario{
+.board{
 display:flex;
-gap:20px;
+gap:10px;
+padding:10px;
 overflow-x:auto;
 }
 
-.dia{
-min-width:270px;
-background:#1d1d1d;
-padding:10px;
-border-radius:10px;
+.col{
+background:#0b3a66;
+color:white;
+min-width:220px;
+border-radius:8px;
+padding:8px;
 }
 
-.dia.hoje{
+.col.hoje{
 border:3px solid gold;
 }
 
 .card{
+background:white;
+color:#333;
+padding:10px;
+margin-bottom:8px;
+border-radius:6px;
 display:flex;
 justify-content:space-between;
-background:#2a2a2a;
-padding:10px;
-border-radius:8px;
-margin-bottom:10px;
+font-size:13px;
 }
 
-.card.visitado{
+.card.done{
 opacity:0.4;
 }
 
-.info{
+.card-actions{
 display:flex;
 flex-direction:column;
-gap:3px;
-font-size:14px;
-}
-
-.icones{
-display:flex;
-flex-direction:column;
-gap:8px;
+gap:6px;
 font-size:18px;
-}
-
-.icones span{
 cursor:pointer;
 }
 
-.icones a{
-text-decoration:none;
+.btn-agendar{
+width:100%;
+margin-top:6px;
+padding:6px;
+background:white;
+color:#0b3a66;
+border:none;
+border-radius:5px;
+font-weight:bold;
+cursor:pointer;
+}
+
+button{
+padding:6px 10px;
+margin:4px;
+background:white;
+color:#0b3a66;
+border:none;
+cursor:pointer;
+font-weight:bold;
+border-radius:5px;
+}
+
+.modal{
+position:fixed;
+inset:0;
+background:rgba(0,0,0,.8);
+display:none;
+align-items:center;
+justify-content:center;
+}
+
+.modal-box{
+background:white;
+padding:25px;
+border-radius:15px;
+width:95%;
+max-width:400px;
+}
+
+.modal-box input,
+.modal-box textarea{
+width:100%;
+margin-bottom:12px;
+padding:10px;
+box-sizing:border-box;
 }
 
 </style>
@@ -88,174 +350,37 @@ text-decoration:none;
 
 <body>
 
-<h1>Agenda de Visitas</h1>
+<header>
+Agenda Realiza Online
+<div>
+<button onclick="semanaAnterior()">⬅</button>
+<button onclick="semanaProxima()">➡</button>
+</div>
+</header>
 
-<button id="notificacao">🔔 Ativar notificações</button>
+<div class="board" id="board"></div>
 
-<div class="calendario" id="calendario"></div>
+<div class="modal" id="modal">
 
-<script>
+<div class="modal-box">
 
-let visitas=[
+<h3>Visita</h3>
 
-{
-id:1,
-data:"2026-03-05",
-cliente:"João Silva",
-telefone:"5521999999999",
-imovel:"Rua das Flores 120",
-hora:"14:00",
-alerta:30,
-obs:"Cliente interessado em financiamento",
-visitado:false
-},
+<input type="hidden" id="dataSelecionada">
+<input type="hidden" id="editId">
 
-{
-id:2,
-data:"2026-03-05",
-cliente:"Maria Souza",
-telefone:"5521988888888",
-imovel:"Av Brasil 500",
-hora:"16:00",
-alerta:20,
-obs:"Levar chave do portão",
-visitado:false
-}
+<input id="nome" placeholder="Nome do Cliente">
+<input id="contato" placeholder="Contato">
+<input id="imovel" placeholder="Imóvel">
+<input id="hora" type="time">
+<textarea id="obs" placeholder="Observação"></textarea>
 
-]
-
-function render(){
-
-const calendario=document.getElementById("calendario")
-calendario.innerHTML=""
-
-const hoje=new Date().toISOString().slice(0,10)
-
-const dias=[...new Set(visitas.map(v=>v.data))]
-
-dias.forEach(data=>{
-
-const coluna=document.createElement("div")
-coluna.className="dia"
-
-if(data===hoje){
-coluna.classList.add("hoje")
-}
-
-coluna.innerHTML="<h3>"+data.split("-").reverse().join("/")+"</h3>"
-
-visitas.filter(v=>v.data===data).forEach(v=>{
-
-const card=document.createElement("div")
-card.className="card"
-
-if(v.visitado){
-card.classList.add("visitado")
-}
-
-card.innerHTML=`
-
-<div class="info">
-
-<div><b>👤 Cliente:</b> ${v.cliente}</div>
-<div><b>📞 Telefone:</b> ${v.telefone}</div>
-<div><b>🏠 Imóvel:</b> ${v.imovel}</div>
-<div><b>⏰ Hora:</b> ${v.hora}</div>
-<div><b>⏱ Avisar:</b> ${v.alerta} min antes</div>
-<div><b>📝 Obs:</b> ${v.obs}</div>
+<button onclick="salvarVisita()">Salvar</button>
+<button onclick="fecharModal()">Cancelar</button>
 
 </div>
 
-<div class="icones">
-
-<a href="https://wa.me/${v.telefone}" target="_blank">💬</a>
-
-<span onclick="toggleVisitado(${v.id})">✔️</span>
-
-<span onclick="editar(${v.id})">✏️</span>
-
-<span onclick="remover(${v.id})">🗑️</span>
-
 </div>
-`
-
-coluna.appendChild(card)
-
-})
-
-calendario.appendChild(coluna)
-
-})
-
-}
-
-function toggleVisitado(id){
-
-const v=visitas.find(x=>x.id===id)
-
-v.visitado=!v.visitado
-
-render()
-
-}
-
-function remover(id){
-
-visitas=visitas.filter(v=>v.id!==id)
-
-render()
-
-}
-
-function editar(id){
-
-const v=visitas.find(x=>x.id===id)
-
-const cliente=prompt("Cliente:",v.cliente)
-const telefone=prompt("Telefone:",v.telefone)
-const imovel=prompt("Imóvel:",v.imovel)
-const hora=prompt("Hora:",v.hora)
-const alerta=prompt("Minutos antes:",v.alerta)
-const obs=prompt("Observação:",v.obs)
-
-if(cliente)v.cliente=cliente
-if(telefone)v.telefone=telefone
-if(imovel)v.imovel=imovel
-if(hora)v.hora=hora
-if(alerta)v.alerta=alerta
-if(obs)v.obs=obs
-
-render()
-
-}
-
-render()
-
-document.getElementById("notificacao").onclick=function(){
-
-if(Notification.permission==="granted"){
-
-new Notification("Notificações ativadas")
-
-}
-
-else if(Notification.permission!=="denied"){
-
-Notification.requestPermission().then(p=>{
-
-if(p==="granted"){
-
-new Notification("Notificações ativadas")
-
-}
-
-})
-
-}
-
-}
-
-</script>
 
 </body>
 </html>
