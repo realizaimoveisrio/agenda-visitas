@@ -22,33 +22,51 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const dias = ["Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
+
 let offsetSemana = 0;
 let cacheVisitas = [];
+let alarmTocando = false;
+let alarmesDisparados = {};
+
+let audio = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
 
 function getInicioSemana(){
+
 const hoje = new Date();
 const dia = hoje.getDay();
+
 const segunda = new Date(hoje);
-segunda.setDate(hoje.getDate() - (dia === 0 ? 6 : dia - 1) + (offsetSemana * 7));
+
+segunda.setDate(
+hoje.getDate() - (dia === 0 ? 6 : dia - 1) + (offsetSemana * 7)
+);
+
 segunda.setHours(0,0,0,0);
+
 return segunda;
+
 }
 
 function montarBoard(){
 
 const board = document.getElementById("board");
-board.innerHTML = "";
+
+board.innerHTML="";
 
 const inicioSemana = getInicioSemana();
+
 const hojeStr = new Date().toISOString().split("T")[0];
 
 dias.forEach((diaNome,i)=>{
 
 const data = new Date(inicioSemana);
+
 data.setDate(inicioSemana.getDate()+i);
+
 const dataStr = data.toISOString().split("T")[0];
 
 const col = document.createElement("div");
+
 col.className="col";
 
 if(dataStr===hojeStr){
@@ -56,9 +74,13 @@ col.classList.add("hoje");
 }
 
 col.innerHTML=`
+
 <h3>${diaNome}<br><small>${data.toLocaleDateString()}</small></h3>
+
 <div class="list" id="dia-${dataStr}"></div>
+
 <button class="btn-agendar" onclick="abrirModal('${dataStr}')">+ Agendar</button>
+
 `;
 
 board.appendChild(col);
@@ -73,60 +95,62 @@ function renderizarVisitas(){
 
 document.querySelectorAll(".list").forEach(l=>l.innerHTML="");
 
-const inicioSemana=getInicioSemana();
-const fimSemana=new Date(inicioSemana);
+const inicioSemana = getInicioSemana();
+const fimSemana = new Date(inicioSemana);
+
 fimSemana.setDate(inicioSemana.getDate()+6);
 
 const visitasOrdenadas=[...cacheVisitas].sort((a,b)=>{
-const dataA=new Date(a.data+"T"+a.hora);
-const dataB=new Date(b.data+"T"+b.hora);
+
+const dataA = new Date(a.data+"T"+a.hora);
+const dataB = new Date(b.data+"T"+b.hora);
+
 return dataA-dataB;
+
 });
 
 visitasOrdenadas.forEach(v=>{
 
-if(!v.data)return;
+if(!v.data) return;
 
-const dataVisita=new Date(v.data);
+const dataVisita = new Date(v.data);
 
-if(dataVisita<inicioSemana||dataVisita>fimSemana)return;
+if(dataVisita < inicioSemana || dataVisita > fimSemana) return;
 
-const container=document.getElementById("dia-"+v.data);
+const container = document.getElementById("dia-"+v.data);
 
 if(container){
 
 container.innerHTML+=`
 
-<div class="card ${v.concluida ? 'done':''}">
+<div class="card ${v.concluida?'done':''}">
 
 <div>
+
 <b>${v.hora}</b><br>
+
 ${v.nome}<br>
-<small>${v.contato||"-"}</small><br>
-<small>${v.imovel||"-"}</small><br>
-<small>${v.obs||"-"}</small>
+
+<small>${v.contato || "-"}</small><br>
+
+<small>${v.imovel || "-"}</small><br>
+
+<small>${v.obs || "-"}</small><br>
+
+<small>⏰ ${v.despertar || 0} min antes</small>
+
 </div>
 
 <div class="card-actions">
 
-<span onclick="abrirWhatsapp('${v.contato}')" title="WhatsApp">
-
-<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 32 32">
-
-<path fill="#25D366"
-d="M16 .396C7.163.396 0 7.56 0 16.396c0 2.822.736 5.576 2.134 8.01L0 32l7.818-2.05a15.94 15.94 0 0 0 8.182 2.244c8.837 0 16-7.164 16-16S24.837.396 16 .396z"/>
-
-<path fill="#FFF"
-d="M24.52 19.548c-.375-.188-2.217-1.094-2.56-1.219-.344-.125-.594-.188-.844.188s-.969 1.219-1.188 1.469c-.219.25-.438.281-.813.094-.375-.188-1.586-.584-3.02-1.861-1.115-.995-1.867-2.223-2.086-2.598-.219-.375-.023-.578.164-.766.168-.167.375-.438.563-.656.188-.219.25-.375.375-.625.125-.25.063-.469-.031-.656-.094-.188-.844-2.031-1.156-2.781-.305-.734-.617-.633-.844-.645l-.719-.012c-.25 0-.656.094-1 .469-.344.375-1.312 1.281-1.312 3.125s1.344 3.625 1.531 3.875c.188.25 2.645 4.039 6.41 5.664.895.387 1.594.617 2.137.789.898.285 1.715.244 2.361.148.719-.107 2.217-.906 2.529-1.781.313-.875.313-1.625.219-1.781-.094-.156-.344-.25-.719-.438z"/>
-
-</svg>
-
-</span>
+<span onclick="abrirWhatsapp('${v.contato}')">💬</span>
 
 <span onclick="abrirModal('${v.data}', ${JSON.stringify(v).replace(/"/g,'&quot;')})">✏️</span>
 
 <span onclick="marcarConcluida('${v.id}', ${v.concluida})">
+
 ${v.concluida ? '🔵' : '✔️'}
+
 </span>
 
 <span onclick="excluir('${v.id}')">🗑️</span>
@@ -143,31 +167,103 @@ ${v.concluida ? '🔵' : '✔️'}
 
 }
 
+function verificarAlarmes(){
+
+const agora = new Date();
+
+cacheVisitas.forEach(v=>{
+
+if(!v.data || !v.hora || !v.despertar || v.concluida) return;
+if(alarmesDisparados[v.id]) return;
+
+const dataHora = new Date(v.data+"T"+v.hora);
+
+dataHora.setMinutes(dataHora.getMinutes()-parseInt(v.despertar));
+
+if(agora>=dataHora && agora < new Date(dataHora.getTime()+60000)){
+
+alarmesDisparados[v.id]=true;
+
+dispararAlarme(v);
+
+}
+
+});
+
+}
+
+function dispararAlarme(v){
+
+if(alarmTocando) return;
+
+alarmTocando=true;
+
+audio.play();
+
+setTimeout(()=>{
+
+audio.pause();
+
+audio.currentTime=0;
+
+alarmTocando=false;
+
+},5000);
+
+document.getElementById("alertaNome").innerText=v.nome;
+
+document.getElementById("alertaImovel").innerText=v.imovel;
+
+document.getElementById("modalAlerta").style.display="flex";
+
+}
+
+window.pararAlarme=()=>{
+
+audio.pause();
+
+audio.currentTime=0;
+
+document.getElementById("modalAlerta").style.display="none";
+
+alarmTocando=false;
+
+}
+
 window.abrirWhatsapp=(numero)=>{
 
 if(!numero){
+
 alert("Número não cadastrado");
+
 return;
+
 }
 
-const numeroLimpo=numero.replace(/\D/g,'');
+const numeroLimpo = numero.replace(/\D/g,'');
 
 window.open(`https://wa.me/${numeroLimpo}`,"_blank");
 
-};
+}
 
 window.addEventListener("DOMContentLoaded",()=>{
 
 montarBoard();
 
 window.semanaAnterior=()=>{
+
 offsetSemana--;
+
 montarBoard();
+
 };
 
 window.semanaProxima=()=>{
+
 offsetSemana++;
+
 montarBoard();
+
 };
 
 window.abrirModal=(data,visita=null)=>{
@@ -177,10 +273,16 @@ dataSelecionada.value=data;
 editId.value=visita?visita.id:"";
 
 nome.value=visita?visita.nome:"";
+
 contato.value=visita?visita.contato:"";
+
 imovel.value=visita?visita.imovel:"";
+
 hora.value=visita?visita.hora:"";
+
 obs.value=visita?visita.obs:"";
+
+despertar.value=visita?visita.despertar:"";
 
 modal.style.display="flex";
 
@@ -193,19 +295,33 @@ window.salvarVisita=async()=>{
 const id=editId.value;
 
 const visita={
+
 nome:nome.value,
+
 contato:contato.value,
+
 imovel:imovel.value,
+
 hora:hora.value,
+
 obs:obs.value,
+
 data:dataSelecionada.value,
+
+despertar:despertar.value,
+
 concluida:false
+
 };
 
 if(id){
+
 await updateDoc(doc(db,"visitas",id),visita);
+
 }else{
+
 await addDoc(collection(db,"visitas"),visita);
+
 }
 
 fecharModal();
@@ -213,12 +329,21 @@ fecharModal();
 };
 
 window.excluir=async(id)=>{
+
 if(confirm("Excluir visita?"))
+
 await deleteDoc(doc(db,"visitas",id));
+
 };
 
 window.marcarConcluida=async(id,atual)=>{
-await updateDoc(doc(db,"visitas",id),{concluida:!atual});
+
+await updateDoc(doc(db,"visitas",id),{
+
+concluida:!atual
+
+});
+
 };
 
 onSnapshot(collection(db,"visitas"),(snapshot)=>{
@@ -226,124 +351,55 @@ onSnapshot(collection(db,"visitas"),(snapshot)=>{
 cacheVisitas=[];
 
 snapshot.forEach(docSnap=>{
+
 const v=docSnap.data();
+
 v.id=docSnap.id;
+
 cacheVisitas.push(v);
+
 });
 
 renderizarVisitas();
 
 });
 
-});
+setInterval(verificarAlarmes,15000);
 
+});
 </script>
 
 <style>
 
-body{
-margin:0;
-font-family:Arial;
-background:#e9eef5;
-}
+body{margin:0;font-family:Arial;background:#e9eef5}
 
-header{
-background:#0b3a66;
-color:#fff;
-padding:15px;
-text-align:center;
-font-weight:bold;
-}
+header{background:#0b3a66;color:#fff;padding:15px;text-align:center;font-weight:bold}
 
-.board{
-display:flex;
-gap:10px;
-padding:10px;
-overflow-x:auto;
-}
+.board{display:flex;gap:10px;padding:10px;overflow-x:auto}
 
-.col{
-background:#0b3a66;
-color:white;
-min-width:220px;
-border-radius:8px;
-padding:8px;
-}
+.col{background:#0b3a66;color:white;min-width:220px;border-radius:8px;padding:8px}
 
-.col.hoje{
-border:3px solid gold;
-}
+.col.hoje{border:3px solid gold;}
 
-.card{
-background:white;
-color:#333;
-padding:10px;
-margin-bottom:8px;
-border-radius:6px;
-display:flex;
-justify-content:space-between;
-font-size:13px;
-}
+.card{background:white;color:#333;padding:10px;margin-bottom:8px;border-radius:6px;display:flex;justify-content:space-between;font-size:13px;}
 
-.card.done{
-opacity:0.4;
-}
+.card.done{opacity:0.4}
 
-.card-actions{
-display:flex;
-flex-direction:column;
-gap:6px;
-font-size:18px;
-cursor:pointer;
-}
+.card-actions{display:flex;flex-direction:column;font-size:18px;cursor:pointer;gap:6px}
 
-.btn-agendar{
-width:100%;
-margin-top:6px;
-padding:6px;
-background:white;
-color:#0b3a66;
-border:none;
-border-radius:5px;
-font-weight:bold;
-cursor:pointer;
-}
+.btn-agendar{width:100%;margin-top:6px;padding:6px;background:white;color:#0b3a66;border:none;border-radius:5px;font-weight:bold;cursor:pointer;}
 
-button{
-padding:6px 10px;
-margin:4px;
-background:white;
-color:#0b3a66;
-border:none;
-cursor:pointer;
-font-weight:bold;
-border-radius:5px;
-}
+button{padding:6px 10px;margin:4px;background:white;color:#0b3a66;border:none;cursor:pointer;font-weight:bold;border-radius:5px;}
 
-.modal{
-position:fixed;
-inset:0;
-background:rgba(0,0,0,.8);
-display:none;
-align-items:center;
-justify-content:center;
-}
+.modal,.modal-alerta{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;align-items:center;justify-content:center;}
 
-.modal-box{
-background:white;
-padding:25px;
-border-radius:15px;
-width:95%;
-max-width:400px;
-}
+.modal-box{background:white;padding:25px;border-radius:15px;width:95%;max-width:400px;}
 
-.modal-box input,
-.modal-box textarea{
-width:100%;
-margin-bottom:12px;
-padding:10px;
-box-sizing:border-box;
-}
+.modal-box input,.modal-box textarea{width:100%;margin-bottom:12px;padding:10px;box-sizing:border-box;}
+
+.alerta-box{background:#b30000;color:white;padding:30px;border-radius:15px;text-align:center;font-size:20px;}
+
+.alerta-box button{background:white;color:#b30000;padding:10px 20px;font-size:18px;}
 
 </style>
 </head>
@@ -351,11 +407,17 @@ box-sizing:border-box;
 <body>
 
 <header>
+
 Agenda Realiza Online
+
 <div>
+
 <button onclick="semanaAnterior()">⬅</button>
+
 <button onclick="semanaProxima()">➡</button>
+
 </div>
+
 </header>
 
 <div class="board" id="board"></div>
@@ -367,16 +429,40 @@ Agenda Realiza Online
 <h3>Visita</h3>
 
 <input type="hidden" id="dataSelecionada">
+
 <input type="hidden" id="editId">
 
 <input id="nome" placeholder="Nome do Cliente">
+
 <input id="contato" placeholder="Contato">
+
 <input id="imovel" placeholder="Imóvel">
+
 <input id="hora" type="time">
+
+<input id="despertar" type="number" placeholder="Despertar (min antes)">
+
 <textarea id="obs" placeholder="Observação"></textarea>
 
 <button onclick="salvarVisita()">Salvar</button>
+
 <button onclick="fecharModal()">Cancelar</button>
+
+</div>
+
+</div>
+
+<div class="modal-alerta" id="modalAlerta">
+
+<div class="alerta-box">
+
+🔔 VISITA CHEGANDO!<br><br>
+
+Cliente: <b id="alertaNome"></b><br>
+
+Imóvel: <b id="alertaImovel"></b><br><br>
+
+<button onclick="pararAlarme()">OK</button>
 
 </div>
 
