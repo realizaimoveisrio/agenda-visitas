@@ -1,58 +1,53 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Agenda de Visitas</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda Realiza Online</title>
 
 <style>
 
 body{
 font-family:Arial;
-background:#f5f5f5;
+background:#f2f2f2;
 margin:0;
 padding:20px;
 }
 
-h1{
-text-align:center;
-}
-
-.form{
-background:white;
-padding:15px;
-border-radius:10px;
+.topbar{
+display:flex;
+justify-content:space-between;
+align-items:center;
 margin-bottom:20px;
-box-shadow:0 0 10px rgba(0,0,0,0.1);
 }
 
-input,textarea,select,button{
-margin:5px;
-padding:8px;
-}
-
-.week{
+.board{
 display:grid;
-grid-template-columns:repeat(7,1fr);
+grid-template-columns:repeat(6,1fr);
 gap:10px;
 }
 
-.day{
+.col{
 background:white;
 border-radius:10px;
 padding:10px;
-min-height:200px;
+min-height:400px;
 box-shadow:0 0 5px rgba(0,0,0,0.1);
 }
 
-.day h3{
-text-align:center;
+.col.hoje{
+border:2px solid #007bff;
+}
+
+.list{
+min-height:300px;
 }
 
 .card{
 background:#e8f3ff;
 padding:10px;
 border-radius:8px;
-margin-top:10px;
+margin-bottom:8px;
 cursor:grab;
 }
 
@@ -60,283 +55,377 @@ cursor:grab;
 opacity:0.4;
 }
 
-.actions{
-margin-top:8px;
+.card-actions{
+margin-top:5px;
 display:flex;
-gap:5px;
-flex-wrap:wrap;
+gap:6px;
 }
 
-button{
-cursor:pointer;
-border:none;
-border-radius:6px;
+.btn-agendar{
+margin-top:8px;
+width:100%;
 }
 
-.whatsapp{
-background:#25D366;
-color:white;
+.modal{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.4);
+display:none;
+align-items:center;
+justify-content:center;
 }
 
-.doneBtn{
-background:#444;
-color:white;
-}
-
-.editBtn{
-background:#007bff;
-color:white;
-}
-
-.drag-over{
-outline:2px dashed #007bff;
+.modal-box{
+background:white;
+padding:20px;
+border-radius:10px;
+width:300px;
 }
 
 </style>
-</head>
 
+</head>
 <body>
 
-<h1>Agenda de Visitas</h1>
+<div class="topbar">
 
-<div class="form">
+<button onclick="semanaAnterior()">◀ Semana anterior</button>
 
-<input id="cliente" placeholder="Cliente">
-<input id="telefone" placeholder="Telefone">
-<input type="date" id="data">
-<input type="time" id="hora">
-<input type="number" id="alerta" placeholder="Alertar antes (min)">
-<textarea id="obs" placeholder="Observação"></textarea>
+<h2>Agenda de Visitas</h2>
 
-<br>
+<button onclick="semanaProxima()">Próxima semana ▶</button>
 
-<button onclick="criarVisita()">Cadastrar Visita</button>
-<button onclick="ativarNotificacao()">Ativar Notificações</button>
+<button onclick="ativarNotificacao()">🔔 Ativar Notificações</button>
 
 </div>
 
-<div class="week" id="week"></div>
+<div class="board" id="board"></div>
 
-<script>
+<div class="modal" id="modal">
 
-let visitas = JSON.parse(localStorage.getItem("visitas") || "[]")
+<div class="modal-box">
 
-let dragId = null
+<input type="hidden" id="editId">
 
-function salvar(){
-localStorage.setItem("visitas",JSON.stringify(visitas))
-}
+<label>Nome</label>
+<input id="nome">
 
-function criarVisita(){
+<label>Contato</label>
+<input id="contato">
 
-let visita={
-id:Date.now(),
-cliente:cliente.value,
-telefone:telefone.value,
-data:data.value,
-hora:hora.value,
-alerta:alerta.value,
-obs:obs.value,
-done:false
-}
+<label>Imóvel</label>
+<input id="imovel">
 
-visitas.push(visita)
+<label>Hora</label>
+<input id="hora" type="time">
 
-salvar()
+<label>Observação</label>
+<textarea id="obs"></textarea>
 
-render()
+<label>Despertar (min antes)</label>
+<input id="despertar" type="number">
 
-}
+<input type="hidden" id="dataSelecionada">
 
-function marcarFeita(id){
+<br><br>
 
-let v=visitas.find(v=>v.id==id)
+<button onclick="salvarVisita()">Salvar</button>
+<button onclick="fecharModal()">Cancelar</button>
 
-v.done=!v.done
+</div>
 
-salvar()
+</div>
 
-render()
+<script type="module">
 
-}
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-function editar(id){
+const firebaseConfig = {
 
-let v=visitas.find(v=>v.id==id)
+apiKey: "",
 
-cliente.value=v.cliente
-telefone.value=v.telefone
-data.value=v.data
-hora.value=v.hora
-alerta.value=v.alerta
-obs.value=v.obs
+authDomain: "agenda-realiza.firebaseapp.com",
 
-visitas=visitas.filter(x=>x.id!=id)
+projectId: "agenda-realiza",
 
-salvar()
+storageBucket: "agenda-realiza.appspot.com",
 
-render()
+messagingSenderId: "683247219357",
 
-}
+appId: "1:683247219357:web:749a3c41c3c2645cb01a74"
 
-function whatsapp(numero,cliente){
+};
 
-let msg=encodeURIComponent("Olá "+cliente)
+let db = null;
 
-window.open("https://wa.me/"+numero+"?text="+msg,"_blank")
+try{
 
-}
+const app = initializeApp(firebaseConfig);
+db = getFirestore(app);
 
-function ativarNotificacao(){
+}catch(e){
 
-Notification.requestPermission()
+console.warn("Firebase não inicializado");
 
 }
 
-function checarAlertas(){
+const dias=["Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
 
-let agora=new Date()
+let offsetSemana=0;
 
-visitas.forEach(v=>{
+let cacheVisitas=[];
 
-if(!v.alerta) return
-
-let dataHora=new Date(v.data+"T"+v.hora)
-
-let alerta=new Date(dataHora.getTime()-(v.alerta*60000))
-
-if(Math.abs(agora-alerta)<60000){
-
-if(Notification.permission==="granted"){
-
-new Notification("Visita em breve",{
-body:v.cliente+" às "+v.hora
-})
-
-}
-
-}
-
-})
-
-}
-
-setInterval(checarAlertas,30000)
+let dragVisitaId=null;
 
 function getInicioSemana(){
 
-let d=new Date()
+const hoje=new Date();
 
-let dia=d.getDay()
+const dia=hoje.getDay();
 
-let diff=d.getDate()-dia+1
+const segunda=new Date(hoje);
 
-return new Date(d.setDate(diff))
+segunda.setDate(hoje.getDate()-(dia===0?6:dia-1)+(offsetSemana*7));
 
-}
+segunda.setHours(0,0,0,0);
 
-function render(){
-
-let week=document.getElementById("week")
-
-week.innerHTML=""
-
-let inicio=getInicioSemana()
-
-for(let i=0;i<7;i++){
-
-let d=new Date(inicio)
-
-d.setDate(inicio.getDate()+i)
-
-let dataStr=d.toISOString().split("T")[0]
-
-let dia=document.createElement("div")
-dia.className="day"
-
-dia.dataset.data=dataStr
-
-dia.innerHTML="<h3>"+d.toLocaleDateString()+"</h3>"
-
-dia.ondragover=(e)=>{
-e.preventDefault()
-dia.classList.add("drag-over")
-}
-
-dia.ondragleave=()=>{
-dia.classList.remove("drag-over")
-}
-
-dia.ondrop=(e)=>{
-e.preventDefault()
-dia.classList.remove("drag-over")
-
-if(!dragId) return
-
-let v=visitas.find(x=>x.id==dragId)
-
-if(v){
-v.data=dataStr
-salvar()
-render()
-}
+return segunda;
 
 }
 
-visitas
-.filter(v=>v.data===dataStr)
-.forEach(v=>{
+function montarBoard(){
 
-let card=document.createElement("div")
+const board=document.getElementById("board");
 
-card.className="card"
+board.innerHTML="";
 
-if(v.done) card.classList.add("done")
+const inicio=getInicioSemana();
 
-card.draggable=true
+const hojeStr=new Date().toISOString().split("T")[0];
 
-card.ondragstart=()=>{
-dragId=v.id
+dias.forEach((diaNome,i)=>{
+
+const data=new Date(inicio);
+
+data.setDate(inicio.getDate()+i);
+
+const dataStr=data.toISOString().split("T")[0];
+
+const col=document.createElement("div");
+
+col.className="col";
+
+if(dataStr===hojeStr)col.classList.add("hoje");
+
+col.innerHTML=`
+
+<h3>${diaNome}<br><small>${data.toLocaleDateString()}</small></h3>
+
+<div class="list" id="dia-${dataStr}"></div>
+
+<button class="btn-agendar" onclick="abrirModal('${dataStr}')">+ Agendar</button>
+
+`;
+
+board.appendChild(col);
+
+setTimeout(()=>{
+
+const lista=document.getElementById("dia-"+dataStr);
+
+lista.ondragover=e=>e.preventDefault();
+
+lista.ondrop=async e=>{
+
+e.preventDefault();
+
+if(!dragVisitaId)return;
+
+if(!db)return;
+
+await updateDoc(doc(db,"visitas",dragVisitaId),{data:dataStr});
+
+dragVisitaId=null;
+
+};
+
+},0);
+
+});
+
+renderizarVisitas();
+
 }
 
-card.ondragend=()=>{
-dragId=null
-}
+function renderizarVisitas(){
 
-card.innerHTML=`
+document.querySelectorAll(".list").forEach(l=>l.innerHTML="");
 
-<strong>${v.cliente}</strong><br>
-${v.hora}<br>
-${v.obs || ""}
+const inicio=getInicioSemana();
 
-<div class="actions">
+const fim=new Date(inicio);
 
-<button class="whatsapp" onclick="whatsapp('${v.telefone}','${v.cliente}')">
-WhatsApp
-</button>
+fim.setDate(inicio.getDate()+6);
 
-<button class="doneBtn" onclick="marcarFeita(${v.id})">
-Feita
-</button>
+cacheVisitas.forEach(v=>{
 
-<button class="editBtn" onclick="editar(${v.id})">
-Editar
-</button>
+if(!v.data)return;
+
+const dataVisita=new Date(v.data);
+
+if(dataVisita<inicio||dataVisita>fim)return;
+
+const container=document.getElementById("dia-"+v.data);
+
+if(container){
+
+container.innerHTML+=`
+
+<div class="card ${v.concluida?'done':''}" draggable="true" ondragstart="dragVisitaId='${v.id}'">
+
+<b>${v.hora}</b><br>
+
+${v.nome}<br>
+
+<small>${v.contato||"-"}</small><br>
+
+<small>${v.imovel||"-"}</small><br>
+
+<small>${v.obs||"-"}</small>
+
+<div class="card-actions">
+
+<span onclick="abrirModal('${v.data}',${JSON.stringify(v).replace(/"/g,'&quot;')})">✏️</span>
+
+<span onclick="marcarConcluida('${v.id}',${v.concluida})">${v.concluida?'🔵':'✔️'}</span>
+
+<span onclick="excluir('${v.id}')">🗑️</span>
 
 </div>
-`
 
-dia.appendChild(card)
+</div>
 
-})
-
-week.appendChild(dia)
+`;
 
 }
 
+});
+
 }
 
-render()
+window.semanaAnterior=()=>{offsetSemana--;montarBoard();}
+
+window.semanaProxima=()=>{offsetSemana++;montarBoard();}
+
+window.abrirModal=(data,v=null)=>{
+
+modal.style.display="flex";
+
+dataSelecionada.value=data;
+
+editId.value=v?v.id:"";
+
+nome.value=v?v.nome:"";
+
+contato.value=v?v.contato:"";
+
+imovel.value=v?v.imovel:"";
+
+hora.value=v?v.hora:"";
+
+obs.value=v?v.obs:"";
+
+despertar.value=v?v.despertar:"";
+
+}
+
+window.fecharModal=()=>modal.style.display="none";
+
+window.salvarVisita=async()=>{
+
+if(!db)return;
+
+const id=editId.value;
+
+const visita={
+
+nome:nome.value,
+
+contato:contato.value,
+
+imovel:imovel.value,
+
+hora:hora.value,
+
+obs:obs.value,
+
+data:dataSelecionada.value,
+
+despertar:despertar.value,
+
+concluida:false
+
+};
+
+if(id){
+
+await updateDoc(doc(db,"visitas",id),visita);
+
+}else{
+
+await addDoc(collection(db,"visitas"),visita);
+
+}
+
+fecharModal();
+
+}
+
+window.excluir=async id=>{
+
+if(!db)return;
+
+if(confirm("Excluir visita?"))
+
+await deleteDoc(doc(db,"visitas",id));
+
+}
+
+window.marcarConcluida=async(id,atual)=>{
+
+if(!db)return;
+
+await updateDoc(doc(db,"visitas",id),{concluida:!atual});
+
+}
+
+if(db){
+
+onSnapshot(collection(db,"visitas"),snap=>{
+
+cacheVisitas=[];
+
+snap.forEach(d=>{
+
+let v=d.data();
+
+v.id=d.id;
+
+cacheVisitas.push(v);
+
+});
+
+renderizarVisitas();
+
+});
+
+}
+
+montarBoard();
 
 </script>
 
