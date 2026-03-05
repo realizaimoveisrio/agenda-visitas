@@ -39,11 +39,20 @@ return;
 }
 
 Notification.requestPermission().then(permission=>{
+
 if(permission==="granted"){
-alert("Notificações ativadas!");
+
+new Notification("Agenda Realiza",{
+body:"Notificações ativadas com sucesso!",
+icon:"https://cdn-icons-png.flaticon.com/512/684/684908.png"
+});
+
 }else{
-alert("Permissão negada.");
+
+alert("Permissão de notificação negada.");
+
 }
+
 });
 
 }
@@ -51,10 +60,12 @@ alert("Permissão negada.");
 function notificar(titulo, mensagem){
 
 if(Notification.permission==="granted"){
+
 new Notification(titulo,{
 body:mensagem,
 icon:"https://cdn-icons-png.flaticon.com/512/684/684908.png"
 });
+
 }
 
 }
@@ -190,11 +201,8 @@ ${v.concluida ? '🔵' : '✔️'}
 }
 
 window.copiarVisita=(visita)=>{
-
 visitaCopiada = visita;
-
 alert("Visita copiada! Clique em COLAR no dia desejado.");
-
 }
 
 window.colarVisita=async(data)=>{
@@ -277,7 +285,6 @@ alarmTocando=false;
 
 }
 
-/* WHATSAPP CORRIGIDO */
 window.abrirWhatsapp=(numero)=>{
 
 if(!numero){
@@ -386,7 +393,15 @@ setInterval(verificarAlarmes,15000);
 
 body{margin:0;font-family:Arial;background:#e9eef5}
 
-header{background:#0b3a66;color:#fff;padding:15px;text-align:center;font-weight:bold}
+header{
+background:#0b3a66;
+color:#fff;
+padding:15px;
+font-weight:bold;
+display:flex;
+justify-content:space-between;
+align-items:center;
+}
 
 .board{display:flex;gap:10px;padding:10px;overflow-x:auto}
 
@@ -421,14 +436,12 @@ button{padding:6px 10px;margin:4px;background:white;color:#0b3a66;border:none;cu
 
 <header>
 
-Agenda Realiza Online
+<div>Agenda Realiza Online</div>
 
 <div>
-
 <button onclick="semanaAnterior()">⬅</button>
 <button onclick="semanaProxima()">➡</button>
 <button onclick="ativarNotificacoes()">🔔 Ativar Notificações</button>
-
 </div>
 
 </header>
@@ -436,7 +449,6 @@ Agenda Realiza Online
 <div class="board" id="board"></div>
 
 <div class="modal" id="modal">
-
 <div class="modal-box">
 
 <h3>Visita</h3>
@@ -455,7 +467,6 @@ Agenda Realiza Online
 <button onclick="fecharModal()">Cancelar</button>
 
 </div>
-
 </div>
 
 <div class="modal-alerta" id="modalAlerta">
