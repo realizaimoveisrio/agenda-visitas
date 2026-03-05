@@ -277,6 +277,7 @@ alarmTocando=false;
 
 }
 
+/* WHATSAPP CORRIGIDO */
 window.abrirWhatsapp=(numero)=>{
 
 if(!numero){
@@ -284,9 +285,13 @@ alert("Número não cadastrado");
 return;
 }
 
-const numeroLimpo = numero.replace(/\D/g,'');
+let numeroLimpo = numero.replace(/\D/g,'');
 
-window.open(`https://wa.me/${numeroLimpo}`,"_blank");
+if(numeroLimpo.length <= 11){
+numeroLimpo = "55" + numeroLimpo;
+}
+
+window.open(`https://api.whatsapp.com/send?phone=${numeroLimpo}`,"_blank");
 
 }
 
