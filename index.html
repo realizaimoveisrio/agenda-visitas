@@ -1,260 +1,344 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Agenda Realiza Online</title>
+<title>Agenda de Visitas</title>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+<style>
 
-const firebaseConfig = {
-  apiKey: "SUA_API_KEY",
-  authDomain: "agenda-realiza.firebaseapp.com",
-  projectId: "agenda-realiza",
-  storageBucket: "agenda-realiza.firebasestorage.app",
-  messagingSenderId: "683247219357",
-  appId: "1:683247219357:web:749a3c41c3c2645cb01a74"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-const dias = ["Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
-let offsetSemana = 0;
-let cacheVisitas = [];
-let alarmTocando = false;
-let alarmesDisparados = {};
-let dragVisitaId = null;
-
-let audio = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
-audio.loop = false;
-
-function getInicioSemana() {
-  const hoje = new Date();
-  const dia = hoje.getDay();
-  const segunda = new Date(hoje);
-  segunda.setDate(hoje.getDate() - (dia === 0 ? 6 : dia - 1) + (offsetSemana * 7));
-  segunda.setHours(0,0,0,0);
-  return segunda;
+body{
+font-family:Arial;
+background:#f5f5f5;
+margin:0;
+padding:20px;
 }
 
-function montarBoard() {
-  const board = document.getElementById("board");
-  board.innerHTML = "";
-  const inicioSemana = getInicioSemana();
-  const hojeStr = new Date().toISOString().split("T")[0];
-
-  dias.forEach((diaNome, i) => {
-    const data = new Date(inicioSemana);
-    data.setDate(inicioSemana.getDate() + i);
-    const dataStr = data.toISOString().split("T")[0];
-
-    const col = document.createElement("div");
-    col.className = "col";
-    if(dataStr === hojeStr){
-      col.classList.add("hoje");
-    }
-
-    col.innerHTML = `
-      <h3>${diaNome}<br><small>${data.toLocaleDateString()}</small></h3>
-      <div class="list" id="dia-${dataStr}"></div>
-      <button class="btn-agendar" onclick="abrirModal('${dataStr}')">+ Agendar</button>
-    `;
-    board.appendChild(col);
-
-    setTimeout(()=>{
-      const lista = document.getElementById("dia-"+dataStr);
-
-      lista.ondragover = (e)=>{
-        e.preventDefault();
-      };
-
-      lista.ondrop = async (e)=>{
-        e.preventDefault();
-        if(!dragVisitaId) return;
-
-        await updateDoc(doc(db,"visitas",dragVisitaId),{
-          data:dataStr
-        });
-
-        dragVisitaId = null;
-      };
-
-    },0);
-
-  });
-
-  renderizarVisitas();
+h1{
+text-align:center;
 }
 
-function renderizarVisitas(){
-  document.querySelectorAll(".list").forEach(l => l.innerHTML = "");
-
-  const inicioSemana = getInicioSemana();
-  const fimSemana = new Date(inicioSemana);
-  fimSemana.setDate(inicioSemana.getDate() + 6);
-
-  const visitasOrdenadas = [...cacheVisitas].sort((a,b)=>{
-    const dataA = new Date(a.data + "T" + a.hora);
-    const dataB = new Date(b.data + "T" + b.hora);
-    return dataA - dataB;
-  });
-
-  visitasOrdenadas.forEach(v => {
-
-    if(!v.data) return;
-
-    const dataVisita = new Date(v.data);
-    if(dataVisita < inicioSemana || dataVisita > fimSemana) return;
-
-    const container = document.getElementById("dia-"+v.data);
-    if(container){
-      container.innerHTML += `
-        <div class="card ${v.concluida ? 'done':''}" draggable="true"
-        ondragstart="dragVisitaId='${v.id}'">
-          <div>
-            <b>${v.hora}</b><br>
-            ${v.nome}<br>
-            <small>${v.contato || "-"}</small><br>
-            <small>${v.imovel || "-"}</small><br>
-            <small>${v.obs || "-"}</small><br>
-            <small>⏰ ${v.despertar || 0} min antes</small>
-          </div>
-          <div class="card-actions">
-            <span onclick="abrirModal('${v.data}', ${JSON.stringify(v).replace(/"/g,'&quot;')})">✏️</span>
-            <span onclick="marcarConcluida('${v.id}', ${v.concluida})">${v.concluida ? '🔵' : '✔️'}</span>
-            <span onclick="excluir('${v.id}')">🗑️</span>
-          </div>
-        </div>
-      `;
-    }
-  });
+.form{
+background:white;
+padding:15px;
+border-radius:10px;
+margin-bottom:20px;
+box-shadow:0 0 10px rgba(0,0,0,0.1);
 }
 
-function verificarAlarmes(){
-  const agora = new Date();
-
-  cacheVisitas.forEach(v => {
-
-    if(!v.data || !v.hora || !v.despertar || v.concluida) return;
-    if(alarmesDisparados[v.id]) return;
-
-    const dataHora = new Date(v.data + "T" + v.hora);
-    dataHora.setMinutes(dataHora.getMinutes() - parseInt(v.despertar));
-
-    if(agora >= dataHora && agora < new Date(dataHora.getTime() + 60000)){
-      alarmesDisparados[v.id] = true;
-      dispararAlarme(v);
-    }
-  });
+input,textarea,select,button{
+margin:5px;
+padding:8px;
 }
 
-function dispararAlarme(v){
-
-  if(alarmTocando) return;
-  alarmTocando = true;
-
-  audio.play();
-
-  setTimeout(()=>{
-    audio.pause();
-    audio.currentTime = 0;
-    alarmTocando = false;
-  },5000);
-
-  document.getElementById("alertaNome").innerText = v.nome;
-  document.getElementById("alertaImovel").innerText = v.imovel;
-  document.getElementById("modalAlerta").style.display = "flex";
-
-  if ("Notification" in window && Notification.permission === "granted") {
-    new Notification("🔔 Visita chegando!", {
-      body: `${v.nome} - ${v.imovel}`,
-      requireInteraction: true
-    });
-  }
+.week{
+display:grid;
+grid-template-columns:repeat(7,1fr);
+gap:10px;
 }
 
-window.pararAlarme = () => {
-  audio.pause();
-  audio.currentTime = 0;
-  document.getElementById("modalAlerta").style.display = "none";
-  alarmTocando = false;
-};
+.day{
+background:white;
+border-radius:10px;
+padding:10px;
+min-height:200px;
+box-shadow:0 0 5px rgba(0,0,0,0.1);
+}
 
-window.addEventListener("DOMContentLoaded", () => {
+.day h3{
+text-align:center;
+}
 
-montarBoard();
+.card{
+background:#e8f3ff;
+padding:10px;
+border-radius:8px;
+margin-top:10px;
+cursor:grab;
+}
 
-window.semanaAnterior = () => { offsetSemana--; montarBoard(); };
-window.semanaProxima = () => { offsetSemana++; montarBoard(); };
+.card.done{
+opacity:0.4;
+}
 
-window.ativarNotificacao = async () => {
-  const permissao = await Notification.requestPermission();
-  if (permissao === "granted") alert("Notificações ativadas!");
-};
+.actions{
+margin-top:8px;
+display:flex;
+gap:5px;
+flex-wrap:wrap;
+}
 
-window.abrirModal = (data, visita=null) => {
-  dataSelecionada.value = data;
-  editId.value = visita ? visita.id : "";
-  nome.value = visita ? visita.nome : "";
-  contato.value = visita ? visita.contato : "";
-  imovel.value = visita ? visita.imovel : "";
-  hora.value = visita ? visita.hora : "";
-  obs.value = visita ? visita.obs : "";
-  despertar.value = visita ? visita.despertar : "";
-  modal.style.display = "flex";
-};
+button{
+cursor:pointer;
+border:none;
+border-radius:6px;
+}
 
-window.fecharModal = () => modal.style.display = "none";
+.whatsapp{
+background:#25D366;
+color:white;
+}
 
-window.salvarVisita = async () => {
+.doneBtn{
+background:#444;
+color:white;
+}
 
-  const id = editId.value;
+.editBtn{
+background:#007bff;
+color:white;
+}
 
-  const visita = {
-    nome: nome.value,
-    contato: contato.value,
-    imovel: imovel.value,
-    hora: hora.value,
-    obs: obs.value,
-    data: dataSelecionada.value,
-    despertar: despertar.value,
-    concluida:false
-  };
+.drag-over{
+outline:2px dashed #007bff;
+}
 
-  if(id){
-    await updateDoc(doc(db,"visitas",id), visita);
-    delete alarmesDisparados[id];
-  } else {
-    await addDoc(collection(db,"visitas"), visita);
-  }
+</style>
+</head>
 
-  fecharModal();
-};
+<body>
 
-window.excluir = async (id) => {
-  if(confirm("Excluir visita?"))
-    await deleteDoc(doc(db,"visitas",id));
-};
+<h1>Agenda de Visitas</h1>
 
-window.marcarConcluida = async (id, atual) => {
-  await updateDoc(doc(db,"visitas",id), {concluida: !atual});
-  if(!atual) delete alarmesDisparados[id];
-};
+<div class="form">
 
-onSnapshot(collection(db,"visitas"), (snapshot) => {
-  cacheVisitas = [];
-  snapshot.forEach(docSnap => {
-    const v = docSnap.data();
-    v.id = docSnap.id;
-    cacheVisitas.push(v);
-  });
-  renderizarVisitas();
-});
+<input id="cliente" placeholder="Cliente">
+<input id="telefone" placeholder="Telefone">
+<input type="date" id="data">
+<input type="time" id="hora">
+<input type="number" id="alerta" placeholder="Alertar antes (min)">
+<textarea id="obs" placeholder="Observação"></textarea>
 
-setInterval(verificarAlarmes,15000);
+<br>
 
-});
+<button onclick="criarVisita()">Cadastrar Visita</button>
+<button onclick="ativarNotificacao()">Ativar Notificações</button>
+
+</div>
+
+<div class="week" id="week"></div>
+
+<script>
+
+let visitas = JSON.parse(localStorage.getItem("visitas") || "[]")
+
+let dragId = null
+
+function salvar(){
+localStorage.setItem("visitas",JSON.stringify(visitas))
+}
+
+function criarVisita(){
+
+let visita={
+id:Date.now(),
+cliente:cliente.value,
+telefone:telefone.value,
+data:data.value,
+hora:hora.value,
+alerta:alerta.value,
+obs:obs.value,
+done:false
+}
+
+visitas.push(visita)
+
+salvar()
+
+render()
+
+}
+
+function marcarFeita(id){
+
+let v=visitas.find(v=>v.id==id)
+
+v.done=!v.done
+
+salvar()
+
+render()
+
+}
+
+function editar(id){
+
+let v=visitas.find(v=>v.id==id)
+
+cliente.value=v.cliente
+telefone.value=v.telefone
+data.value=v.data
+hora.value=v.hora
+alerta.value=v.alerta
+obs.value=v.obs
+
+visitas=visitas.filter(x=>x.id!=id)
+
+salvar()
+
+render()
+
+}
+
+function whatsapp(numero,cliente){
+
+let msg=encodeURIComponent("Olá "+cliente)
+
+window.open("https://wa.me/"+numero+"?text="+msg,"_blank")
+
+}
+
+function ativarNotificacao(){
+
+Notification.requestPermission()
+
+}
+
+function checarAlertas(){
+
+let agora=new Date()
+
+visitas.forEach(v=>{
+
+if(!v.alerta) return
+
+let dataHora=new Date(v.data+"T"+v.hora)
+
+let alerta=new Date(dataHora.getTime()-(v.alerta*60000))
+
+if(Math.abs(agora-alerta)<60000){
+
+if(Notification.permission==="granted"){
+
+new Notification("Visita em breve",{
+body:v.cliente+" às "+v.hora
+})
+
+}
+
+}
+
+})
+
+}
+
+setInterval(checarAlertas,30000)
+
+function getInicioSemana(){
+
+let d=new Date()
+
+let dia=d.getDay()
+
+let diff=d.getDate()-dia+1
+
+return new Date(d.setDate(diff))
+
+}
+
+function render(){
+
+let week=document.getElementById("week")
+
+week.innerHTML=""
+
+let inicio=getInicioSemana()
+
+for(let i=0;i<7;i++){
+
+let d=new Date(inicio)
+
+d.setDate(inicio.getDate()+i)
+
+let dataStr=d.toISOString().split("T")[0]
+
+let dia=document.createElement("div")
+dia.className="day"
+
+dia.dataset.data=dataStr
+
+dia.innerHTML="<h3>"+d.toLocaleDateString()+"</h3>"
+
+dia.ondragover=(e)=>{
+e.preventDefault()
+dia.classList.add("drag-over")
+}
+
+dia.ondragleave=()=>{
+dia.classList.remove("drag-over")
+}
+
+dia.ondrop=(e)=>{
+e.preventDefault()
+dia.classList.remove("drag-over")
+
+if(!dragId) return
+
+let v=visitas.find(x=>x.id==dragId)
+
+if(v){
+v.data=dataStr
+salvar()
+render()
+}
+
+}
+
+visitas
+.filter(v=>v.data===dataStr)
+.forEach(v=>{
+
+let card=document.createElement("div")
+
+card.className="card"
+
+if(v.done) card.classList.add("done")
+
+card.draggable=true
+
+card.ondragstart=()=>{
+dragId=v.id
+}
+
+card.ondragend=()=>{
+dragId=null
+}
+
+card.innerHTML=`
+
+<strong>${v.cliente}</strong><br>
+${v.hora}<br>
+${v.obs || ""}
+
+<div class="actions">
+
+<button class="whatsapp" onclick="whatsapp('${v.telefone}','${v.cliente}')">
+WhatsApp
+</button>
+
+<button class="doneBtn" onclick="marcarFeita(${v.id})">
+Feita
+</button>
+
+<button class="editBtn" onclick="editar(${v.id})">
+Editar
+</button>
+
+</div>
+`
+
+dia.appendChild(card)
+
+})
+
+week.appendChild(dia)
+
+}
+
+}
+
+render()
+
 </script>
+
+</body>
+</html>
