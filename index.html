@@ -31,6 +31,34 @@ let visitaCopiada = null;
 
 let audio = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
 
+function ativarNotificacoes(){
+
+if(!("Notification" in window)){
+alert("Seu navegador não suporta notificações");
+return;
+}
+
+Notification.requestPermission().then(permission=>{
+if(permission==="granted"){
+alert("Notificações ativadas!");
+}else{
+alert("Permissão negada.");
+}
+});
+
+}
+
+function notificar(titulo, mensagem){
+
+if(Notification.permission==="granted"){
+new Notification(titulo,{
+body:mensagem,
+icon:"https://cdn-icons-png.flaticon.com/512/684/684908.png"
+});
+}
+
+}
+
 function getInicioSemana(){
 
 const hoje = new Date();
@@ -51,23 +79,19 @@ return segunda;
 function montarBoard(){
 
 const board = document.getElementById("board");
-
 board.innerHTML="";
 
 const inicioSemana = getInicioSemana();
-
 const hojeStr = new Date().toISOString().split("T")[0];
 
 dias.forEach((diaNome,i)=>{
 
 const data = new Date(inicioSemana);
-
 data.setDate(inicioSemana.getDate()+i);
 
 const dataStr = data.toISOString().split("T")[0];
 
 const col = document.createElement("div");
-
 col.className="col";
 
 if(dataStr===hojeStr){
@@ -130,13 +154,10 @@ container.innerHTML+=`
 <div>
 
 <b>${v.hora}</b><br>
-
 ${v.nome}<br>
 
 <small>${v.contato || "-"}</small><br>
-
 <small>${v.imovel || "-"}</small><br>
-
 <small>${v.obs || "-"}</small><br>
 
 <small>⏰ ${v.despertar || 0} min antes</small>
@@ -146,15 +167,12 @@ ${v.nome}<br>
 <div class="card-actions">
 
 <span onclick="abrirWhatsapp('${v.contato}')">💬</span>
-
 <span onclick="copiarVisita(${JSON.stringify(v).replace(/"/g,'&quot;')})">📋</span>
 
 <span onclick="abrirModal('${v.data}', ${JSON.stringify(v).replace(/"/g,'&quot;')})">✏️</span>
 
 <span onclick="marcarConcluida('${v.id}', ${v.concluida})">
-
 ${v.concluida ? '🔵' : '✔️'}
-
 </span>
 
 <span onclick="excluir('${v.id}')">🗑️</span>
@@ -175,7 +193,7 @@ window.copiarVisita=(visita)=>{
 
 visitaCopiada = visita;
 
-alert("Visita copiada! Agora clique em COLAR no dia desejado.");
+alert("Visita copiada! Clique em COLAR no dia desejado.");
 
 }
 
@@ -187,7 +205,6 @@ return;
 }
 
 const novaVisita = {
-
 nome:visitaCopiada.nome,
 contato:visitaCopiada.contato,
 imovel:visitaCopiada.imovel,
@@ -196,7 +213,6 @@ obs:visitaCopiada.obs,
 data:data,
 despertar:visitaCopiada.despertar,
 concluida:false
-
 };
 
 await addDoc(collection(db,"visitas"),novaVisita);
@@ -219,7 +235,6 @@ dataHora.setMinutes(dataHora.getMinutes()-parseInt(v.despertar));
 if(agora>=dataHora && agora < new Date(dataHora.getTime()+60000)){
 
 alarmesDisparados[v.id]=true;
-
 dispararAlarme(v);
 
 }
@@ -235,6 +250,8 @@ if(alarmTocando) return;
 alarmTocando=true;
 
 audio.play();
+
+notificar("Visita chegando!", `${v.nome} - ${v.imovel}`);
 
 setTimeout(()=>{
 
@@ -254,6 +271,7 @@ window.pararAlarme=()=>{
 
 audio.pause();
 audio.currentTime=0;
+
 document.getElementById("modalAlerta").style.display="none";
 alarmTocando=false;
 
@@ -267,6 +285,7 @@ return;
 }
 
 const numeroLimpo = numero.replace(/\D/g,'');
+
 window.open(`https://wa.me/${numeroLimpo}`,"_blank");
 
 }
@@ -308,7 +327,6 @@ window.salvarVisita=async()=>{
 const id=editId.value;
 
 const visita={
-
 nome:nome.value,
 contato:contato.value,
 imovel:imovel.value,
@@ -317,7 +335,6 @@ obs:obs.value,
 data:dataSelecionada.value,
 despertar:despertar.value,
 concluida:false
-
 };
 
 if(id){
@@ -346,12 +363,9 @@ onSnapshot(collection(db,"visitas"),(snapshot)=>{
 cacheVisitas=[];
 
 snapshot.forEach(docSnap=>{
-
 const v=docSnap.data();
 v.id=docSnap.id;
-
 cacheVisitas.push(v);
-
 });
 
 renderizarVisitas();
@@ -408,6 +422,7 @@ Agenda Realiza Online
 
 <button onclick="semanaAnterior()">⬅</button>
 <button onclick="semanaProxima()">➡</button>
+<button onclick="ativarNotificacoes()">🔔 Ativar Notificações</button>
 
 </div>
 
