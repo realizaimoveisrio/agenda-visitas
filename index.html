@@ -7,28 +7,45 @@
 
 <script type="module">
 
+/* ---------------- FIREBASE ---------------- */
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-const firebaseConfig = {
-apiKey: "SUA_API_KEY",
-authDomain: "agenda-realiza.firebaseapp.com",
-projectId: "agenda-realiza",
-storageBucket: "agenda-realiza.firebasestorage.app",
-messagingSenderId: "683247219357",
-appId: "1:683247219357:web:749a3c41c3c2645cb01a74"
+const firebaseConfig={
+apiKey:"SUA_API_KEY",
+authDomain:"agenda-realiza.firebaseapp.com",
+projectId:"agenda-realiza",
+storageBucket:"agenda-realiza.firebasestorage.app",
+messagingSenderId:"683247219357",
+appId:"1:683247219357:web:749a3c41c3c2645cb01a74"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const app=initializeApp(firebaseConfig);
+const db=getFirestore(app);
 
-const dias = ["Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
+/* ---------------- VARIÁVEIS ---------------- */
 
-let offsetSemana = 0;
-let cacheVisitas = [];
-let alarmesDisparados = {};
+const dias=["Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
 
-let audio = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
+let cacheVisitas=[];
+let alarmesDisparados={};
+
+let audio=new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
+
+/* ---------------- UTIL ---------------- */
+
+function formatarDataLocal(data){
+
+const ano=data.getFullYear();
+const mes=String(data.getMonth()+1).padStart(2,"0");
+const dia=String(data.getDate()).padStart(2,"0");
+
+return `${ano}-${mes}-${dia}`;
+
+}
+
+/* ---------------- ALARME ---------------- */
 
 function tocarAlarme(visita){
 
@@ -48,23 +65,19 @@ function mostrarModal(visita){
 
 const fundo=document.createElement("div");
 
-fundo.style.position="fixed";
-fundo.style.inset="0";
-fundo.style.background="rgba(0,0,0,0.7)";
-fundo.style.display="flex";
-fundo.style.alignItems="center";
-fundo.style.justifyContent="center";
-fundo.style.zIndex="9999";
+fundo.className="modal-alerta";
 
 fundo.innerHTML=`
 
-<div style="background:#ff0000;color:white;padding:30px;border-radius:10px;text-align:center;font-weight:bold">
+<div class="alerta-box">
 
 🚨 VISITA PRÓXIMA 🚨<br><br>
 
 Cliente: ${visita.nome}<br>
 Imóvel: ${visita.imovel}<br>
-Horário: ${visita.hora}<br><br>
+Hora: ${visita.hora}
+
+<br><br>
 
 <button id="okAlarme">OK</button>
 
@@ -81,23 +94,21 @@ fundo.remove();
 
 function verificarAlarmes(){
 
-const agora = new Date().getTime();
+const agora=new Date().getTime();
 
 cacheVisitas.forEach(v=>{
 
-if(!v.data || !v.hora) return;
+if(!v.data||!v.hora)return;
 
 const chave=v.id;
 
-const horarioVisita = new Date(v.data+"T"+v.hora);
+const horario=new Date(v.data+"T"+v.hora);
 
-const minutosAntes=parseInt(v.despertar || 0);
+horario.setMinutes(horario.getMinutes()-parseInt(v.despertar||0));
 
-horarioVisita.setMinutes(horarioVisita.getMinutes()-minutosAntes);
+const tempo=horario.getTime();
 
-const tempoAlarme = horarioVisita.getTime();
-
-if(agora >= tempoAlarme && !alarmesDisparados[chave] && !v.concluida){
+if(agora>=tempo&&!alarmesDisparados[chave]&&!v.concluida){
 
 alarmesDisparados[chave]=true;
 
@@ -109,33 +120,110 @@ tocarAlarme(v);
 
 }
 
-window.abrirWhats=(nome)=>{
-window.open(`https://wa.me/?text=Olá ${nome}, confirmando a visita.`,"_blank");
+/* ---------------- BOARD ---------------- */
+
+function montarBoard(){
+
+const board=document.getElementById("board");
+board.innerHTML="";
+
+const hoje=new Date();
+
+for(let i=0;i<6;i++){
+
+const data=new Date();
+data.setDate(hoje.getDate()+i);
+
+const dataStr=formatarDataLocal(data);
+
+const col=document.createElement("div");
+col.className="col";
+
+col.innerHTML=`
+
+<h3>${dias[i]}<br><small>${data.toLocaleDateString()}</small></h3>
+
+<div class="list" id="dia-${dataStr}"></div>
+
+<button onclick="abrirModal('${dataStr}')">+ Agendar</button>
+
+`;
+
+board.appendChild(col);
+
+}
+
+renderizarVisitas();
+
+}
+
+/* ---------------- RENDER ---------------- */
+
+function renderizarVisitas(){
+
+document.querySelectorAll(".list").forEach(l=>l.innerHTML="");
+
+cacheVisitas.forEach(v=>{
+
+const lista=document.getElementById("dia-"+v.data);
+
+if(!lista)return;
+
+lista.innerHTML+=`
+
+<div class="card ${v.concluida?'done':''}">
+
+<div class="card-info">
+
+<b>${v.hora}</b>
+
+<span>${v.nome}</span>
+
+<span>${v.imovel}</span>
+
+<span>${v.contato}</span>
+
+<small>⏰ ${v.despertar} min antes</small>
+
+<small>${v.obs||""}</small>
+
+</div>
+
+<div class="card-actions">
+
+<span onclick="abrirWhats('${v.contato}')">💬</span>
+
+<span onclick="copiarCard('${v.nome}','${v.imovel}','${v.hora}')">📋</span>
+
+<span onclick="editarVisita('${v.id}')">✏</span>
+
+<span onclick="marcarVisitado('${v.id}',${v.concluida})">✔</span>
+
+<span onclick="apagarVisita('${v.id}')">🗑</span>
+
+</div>
+
+</div>
+
+`;
+
+});
+
+}
+
+/* ---------------- BOTÕES ---------------- */
+
+window.abrirWhats=(contato)=>{
+window.open(`https://wa.me/55${contato}`,"_blank");
 };
 
 window.copiarCard=(nome,imovel,hora)=>{
 
 navigator.clipboard.writeText(
-`Visita\nCliente: ${nome}\nImóvel: ${imovel}\nHorário: ${hora}`
+`Visita\nCliente:${nome}\nImóvel:${imovel}\nHora:${hora}`
 );
 
 alert("Card copiado");
-
-};
-
-window.editarVisita=async(id)=>{
-
-const v=cacheVisitas.find(x=>x.id===id);
-
-const nome=prompt("Cliente",v.nome);
-if(nome===null)return;
-
-const imovel=prompt("Imóvel",v.imovel);
-
-await updateDoc(doc(db,"visitas",id),{
-nome,
-imovel
-});
 
 };
 
@@ -157,139 +245,59 @@ await deleteDoc(doc(db,"visitas",id));
 
 };
 
+window.editarVisita=(id)=>{
+
+const v=cacheVisitas.find(x=>x.id===id);
+
+const nome=prompt("Cliente",v.nome);
+const imovel=prompt("Imóvel",v.imovel);
+
+updateDoc(doc(db,"visitas",id),{nome,imovel});
+
+};
+
+/* ---------------- AGENDAR ---------------- */
+
 window.abrirModal=(data)=>{
 
-const nome=prompt("Cliente");
-if(!nome)return;
+document.getElementById("modalData").value=data;
 
-const imovel=prompt("Imóvel");
+document.getElementById("modal").style.display="flex";
 
-const hora=prompt("Hora (ex: 14:30)");
+};
 
-const despertar=prompt("Minutos antes para alarme",10);
+window.salvarVisita=async()=>{
 
-addDoc(collection(db,"visitas"),{
+const nome=document.getElementById("cliente").value;
+const contato=document.getElementById("contato").value;
+const imovel=document.getElementById("imovel").value;
+const hora=document.getElementById("hora").value;
+const despertar=document.getElementById("despertar").value;
+const obs=document.getElementById("obs").value;
+const data=document.getElementById("modalData").value;
+
+await addDoc(collection(db,"visitas"),{
 
 nome,
+contato,
 imovel,
 hora,
-data,
 despertar,
+obs,
+data,
 concluida:false
 
 });
 
+fecharModal();
+
 };
 
-function formatarDataLocal(data){
+window.fecharModal=()=>{
+document.getElementById("modal").style.display="none";
+};
 
-const ano=data.getFullYear();
-const mes=String(data.getMonth()+1).padStart(2,"0");
-const dia=String(data.getDate()).padStart(2,"0");
-
-return `${ano}-${mes}-${dia}`;
-
-}
-
-function getInicioSemana(){
-
-const hoje=new Date();
-const dia=hoje.getDay();
-
-const segunda=new Date(hoje);
-
-segunda.setDate(
-hoje.getDate()-(dia===0?6:dia-1)+(offsetSemana*7)
-);
-
-segunda.setHours(0,0,0,0);
-
-return segunda;
-
-}
-
-function montarBoard(){
-
-const board=document.getElementById("board");
-board.innerHTML="";
-
-const inicioSemana=getInicioSemana();
-const hojeStr=formatarDataLocal(new Date());
-
-dias.forEach((diaNome,i)=>{
-
-const data=new Date(inicioSemana);
-data.setDate(inicioSemana.getDate()+i);
-
-const dataStr=formatarDataLocal(data);
-
-const col=document.createElement("div");
-col.className="col";
-
-if(dataStr===hojeStr){
-col.classList.add("hoje");
-}
-
-col.innerHTML=`
-
-<h3>${diaNome}<br><small>${data.toLocaleDateString()}</small></h3>
-
-<div class="list" id="dia-${dataStr}"></div>
-
-<button class="btn-agendar" onclick="abrirModal('${dataStr}')">+ Agendar</button>
-
-`;
-
-board.appendChild(col);
-
-});
-
-renderizarVisitas();
-
-}
-
-function renderizarVisitas(){
-
-document.querySelectorAll(".list").forEach(l=>l.innerHTML="");
-
-cacheVisitas.forEach(v=>{
-
-const container=document.getElementById("dia-"+v.data);
-
-if(container){
-
-container.innerHTML+=`
-
-<div class="card ${v.concluida?'done':''}">
-
-<div>
-
-<b>${v.hora}</b><br>
-${v.nome}<br>
-${v.imovel}<br>
-<small>⏰ ${v.despertar} min antes</small>
-
-</div>
-
-<div class="card-actions">
-
-<span onclick="abrirWhats('${v.nome}')">💬</span>
-<span onclick="copiarCard('${v.nome}','${v.imovel}','${v.hora}')">📋</span>
-<span onclick="editarVisita('${v.id}')">✏</span>
-<span onclick="marcarVisitado('${v.id}',${v.concluida})">✔</span>
-<span onclick="apagarVisita('${v.id}')">🗑</span>
-
-</div>
-
-</div>
-
-`;
-
-}
-
-});
-
-}
+/* ---------------- FIRESTORE ---------------- */
 
 window.addEventListener("DOMContentLoaded",()=>{
 
@@ -302,9 +310,12 @@ onSnapshot(collection(db,"visitas"),(snapshot)=>{
 cacheVisitas=[];
 
 snapshot.forEach(docSnap=>{
+
 const v=docSnap.data();
 v.id=docSnap.id;
+
 cacheVisitas.push(v);
+
 });
 
 renderizarVisitas();
@@ -317,14 +328,16 @@ renderizarVisitas();
 
 <style>
 
-body{margin:0;font-family:Arial;background:#e9eef5}
+body{
+margin:0;
+font-family:Arial;
+background:#e9eef5;
+}
 
 header{
 background:#0b3a66;
 color:white;
 padding:15px;
-display:flex;
-justify-content:space-between;
 }
 
 .board{
@@ -337,9 +350,9 @@ overflow-x:auto;
 .col{
 background:#0b3a66;
 color:white;
-min-width:220px;
-border-radius:8px;
+min-width:230px;
 padding:8px;
+border-radius:8px;
 }
 
 .card{
@@ -357,6 +370,12 @@ font-size:13px;
 opacity:0.4;
 }
 
+.card-info{
+display:flex;
+flex-direction:column;
+gap:2px;
+}
+
 .card-actions{
 display:flex;
 flex-direction:column;
@@ -366,13 +385,55 @@ cursor:pointer;
 }
 
 button{
-padding:6px 10px;
-background:white;
-color:#0b3a66;
+margin-top:5px;
+padding:6px;
 border:none;
 border-radius:5px;
-font-weight:bold;
 cursor:pointer;
+}
+
+/* modal */
+
+.modal{
+display:none;
+position:fixed;
+inset:0;
+background:rgba(0,0,0,0.6);
+align-items:center;
+justify-content:center;
+}
+
+.modal-box{
+background:white;
+padding:20px;
+border-radius:8px;
+width:300px;
+display:flex;
+flex-direction:column;
+gap:8px;
+}
+
+.modal-box input,
+.modal-box textarea{
+padding:6px;
+}
+
+.modal-alerta{
+position:fixed;
+inset:0;
+background:rgba(0,0,0,0.7);
+display:flex;
+align-items:center;
+justify-content:center;
+}
+
+.alerta-box{
+background:red;
+color:white;
+padding:30px;
+border-radius:10px;
+text-align:center;
+font-weight:bold;
 }
 
 </style>
@@ -382,16 +443,43 @@ cursor:pointer;
 <body>
 
 <header>
-
-<div>Agenda Realiza Online</div>
-
-<div>
-<button onclick="ativarNotificacoes()">🔔 Ativar Notificações</button>
-</div>
-
+Agenda Realiza Online
 </header>
 
 <div class="board" id="board"></div>
+
+<!-- MODAL AGENDAR -->
+
+<div class="modal" id="modal">
+
+<div class="modal-box">
+
+<input type="hidden" id="modalData">
+
+<label>Cliente</label>
+<input id="cliente">
+
+<label>Contato (WhatsApp)</label>
+<input id="contato">
+
+<label>Imóvel</label>
+<input id="imovel">
+
+<label>Hora</label>
+<input type="time" id="hora">
+
+<label>Despertar antes (min)</label>
+<input type="number" id="despertar" value="10">
+
+<label>Observação</label>
+<textarea id="obs"></textarea>
+
+<button onclick="salvarVisita()">Salvar</button>
+<button onclick="fecharModal()">Cancelar</button>
+
+</div>
+
+</div>
 
 </body>
 </html>
