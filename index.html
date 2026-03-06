@@ -31,6 +31,8 @@ const dias=["Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
 let cacheVisitas=[];
 let alarmesDisparados={};
 
+let offsetSemana=0;
+
 let audio=new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
 
 /* ---------------- UTIL ---------------- */
@@ -44,6 +46,27 @@ const dia=String(data.getDate()).padStart(2,"0");
 return `${ano}-${mes}-${dia}`;
 
 }
+
+/* ---------------- NOTIFICAÇÕES ---------------- */
+
+window.ativarNotificacoes=()=>{
+
+if(!("Notification" in window)){
+alert("Seu navegador não suporta notificações.");
+return;
+}
+
+Notification.requestPermission().then(permission=>{
+
+if(permission==="granted"){
+alert("🔔 Notificações ativadas!");
+}else{
+alert("Permissão de notificação negada.");
+}
+
+});
+
+};
 
 /* ---------------- ALARME ---------------- */
 
@@ -59,12 +82,19 @@ audio.currentTime=0;
 
 mostrarModal(visita);
 
+if(Notification.permission==="granted"){
+
+new Notification("Visita próxima",{
+body:`${visita.nome} - ${visita.hora}`
+});
+
+}
+
 }
 
 function mostrarModal(visita){
 
 const fundo=document.createElement("div");
-
 fundo.className="modal-alerta";
 
 fundo.innerHTML=`
@@ -120,6 +150,35 @@ tocarAlarme(v);
 
 }
 
+/* ---------------- SEMANA ---------------- */
+
+function getInicioSemana(){
+
+const hoje=new Date();
+const dia=hoje.getDay();
+
+const segunda=new Date(hoje);
+
+segunda.setDate(
+hoje.getDate()-(dia===0?6:dia-1)+(offsetSemana*7)
+);
+
+segunda.setHours(0,0,0,0);
+
+return segunda;
+
+}
+
+window.semanaAnterior=()=>{
+offsetSemana--;
+montarBoard();
+};
+
+window.semanaProxima=()=>{
+offsetSemana++;
+montarBoard();
+};
+
 /* ---------------- BOARD ---------------- */
 
 function montarBoard(){
@@ -127,12 +186,12 @@ function montarBoard(){
 const board=document.getElementById("board");
 board.innerHTML="";
 
-const hoje=new Date();
+const inicioSemana=getInicioSemana();
 
 for(let i=0;i<6;i++){
 
-const data=new Date();
-data.setDate(hoje.getDate()+i);
+const data=new Date(inicioSemana);
+data.setDate(inicioSemana.getDate()+i);
 
 const dataStr=formatarDataLocal(data);
 
@@ -176,15 +235,11 @@ lista.innerHTML+=`
 <div class="card-info">
 
 <b>${v.hora}</b>
-
 <span>${v.nome}</span>
-
 <span>${v.imovel}</span>
-
 <span>${v.contato}</span>
 
 <small>⏰ ${v.despertar} min antes</small>
-
 <small>${v.obs||""}</small>
 
 </div>
@@ -238,9 +293,7 @@ concluida:!status
 window.apagarVisita=async(id)=>{
 
 if(confirm("Apagar visita?")){
-
 await deleteDoc(doc(db,"visitas",id));
-
 }
 
 };
@@ -261,7 +314,6 @@ updateDoc(doc(db,"visitas",id),{nome,imovel});
 window.abrirModal=(data)=>{
 
 document.getElementById("modalData").value=data;
-
 document.getElementById("modal").style.display="flex";
 
 };
@@ -277,16 +329,7 @@ const obs=document.getElementById("obs").value;
 const data=document.getElementById("modalData").value;
 
 await addDoc(collection(db,"visitas"),{
-
-nome,
-contato,
-imovel,
-hora,
-despertar,
-obs,
-data,
-concluida:false
-
+nome,contato,imovel,hora,despertar,obs,data,concluida:false
 });
 
 fecharModal();
@@ -338,6 +381,9 @@ header{
 background:#0b3a66;
 color:white;
 padding:15px;
+display:flex;
+justify-content:space-between;
+align-items:center;
 }
 
 .board{
@@ -385,7 +431,6 @@ cursor:pointer;
 }
 
 button{
-margin-top:5px;
 padding:6px;
 border:none;
 border-radius:5px;
@@ -443,7 +488,19 @@ font-weight:bold;
 <body>
 
 <header>
-Agenda Realiza Online
+
+<div>Agenda Realiza Online</div>
+
+<div>
+
+<button onclick="semanaAnterior()">⬅ Semana anterior</button>
+
+<button onclick="semanaProxima()">Semana seguinte ➡</button>
+
+<button onclick="ativarNotificacoes()">🔔 Ativar Notificações</button>
+
+</div>
+
 </header>
 
 <div class="board" id="board"></div>
