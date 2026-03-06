@@ -6,6 +6,7 @@
 <title>Agenda Realiza Online</title>
 
 <script type="module">
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -26,7 +27,6 @@ const dias = ["Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
 let offsetSemana = 0;
 let cacheVisitas = [];
 let alarmesDisparados = {};
-let visitaCopiada = null;
 
 let audio = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
 audio.preload="auto";
@@ -41,18 +41,20 @@ audio.pause();
 audio.currentTime=0;
 },5000);
 
-mostrarAlerta(visita);
+mostrarModal(visita);
 
 if(Notification.permission==="granted"){
-new Notification("🔔 Visita Agendada",{
-body:`Cliente: ${visita.nome} | Horário: ${visita.hora}`,
+
+new Notification("🔔 Visita próxima!",{
+body:`${visita.nome} - ${visita.hora}`,
 icon:"https://cdn-icons-png.flaticon.com/512/1827/1827392.png"
 });
-}
 
 }
 
-function mostrarAlerta(visita){
+}
+
+function mostrarModal(visita){
 
 const fundo=document.createElement("div");
 
@@ -67,38 +69,32 @@ fundo.style.zIndex="9999";
 fundo.innerHTML=`
 
 <div style="
-background:#ff2b2b;
+background:#ff0000;
 color:white;
 padding:30px;
 border-radius:10px;
-text-align:center;
 font-size:18px;
 font-weight:bold;
-max-width:400px;
-">
+text-align:center;
+max-width:420px">
 
-🚨 VISITA AGORA 🚨<br><br>
+🚨 VISITA PRÓXIMA 🚨<br><br>
 
 Cliente: ${visita.nome}<br>
 Imóvel: ${visita.imovel}<br>
 Horário: ${visita.hora}<br><br>
 
-<button id="btnOk" style="
-padding:10px 20px;
-font-size:18px;
-background:white;
-border:none;
-border-radius:6px;
-cursor:pointer;
-font-weight:bold;
-">OK</button>
+<button id="okAlarme"
+style="padding:10px 20px;font-size:18px;font-weight:bold;border:none;border-radius:6px;cursor:pointer;">
+OK
+</button>
 
 </div>
 `;
 
 document.body.appendChild(fundo);
 
-document.getElementById("btnOk").onclick=()=>{
+document.getElementById("okAlarme").onclick=()=>{
 fundo.remove();
 };
 
@@ -106,7 +102,7 @@ fundo.remove();
 
 function verificarAlarmes(){
 
-const agora=new Date();
+const agora = new Date().getTime();
 
 cacheVisitas.forEach(v=>{
 
@@ -114,13 +110,15 @@ if(!v.data || !v.hora) return;
 
 const chave=v.id;
 
-const dataHora=new Date(v.data+"T"+v.hora);
+const horarioVisita = new Date(v.data+"T"+v.hora);
 
-const minutosAntes=parseInt(v.despertar||0);
+const minutosAntes=parseInt(v.despertar || 0);
 
-dataHora.setMinutes(dataHora.getMinutes()-minutosAntes);
+horarioVisita.setMinutes(horarioVisita.getMinutes()-minutosAntes);
 
-if(agora>=dataHora && !alarmesDisparados[chave] && !v.concluida){
+const tempoAlarme = horarioVisita.getTime();
+
+if(agora >= tempoAlarme && !alarmesDisparados[chave] && !v.concluida){
 
 alarmesDisparados[chave]=true;
 
@@ -143,17 +141,20 @@ Notification.requestPermission().then(permission=>{
 
 if(permission==="granted"){
 
-alert("Notificações ativadas!");
+alert("🔔 Notificações ativadas no Chrome!");
 
-/* desbloqueia o áudio para o navegador */
 audio.play().then(()=>{
 audio.pause();
 audio.currentTime=0;
 }).catch(()=>{});
 
+}else if(permission==="denied"){
+
+alert("❌ Notificações bloqueadas no navegador.");
+
 }else{
 
-alert("Permissão de notificação negada.");
+alert("Permissão de notificação não concedida.");
 
 }
 
@@ -164,10 +165,13 @@ alert("Permissão de notificação negada.");
 window.ativarNotificacoes=ativarNotificacoes;
 
 function formatarDataLocal(data){
+
 const ano=data.getFullYear();
 const mes=String(data.getMonth()+1).padStart(2,"0");
 const dia=String(data.getDate()).padStart(2,"0");
+
 return `${ano}-${mes}-${dia}`;
+
 }
 
 function getInicioSemana(){
@@ -216,7 +220,6 @@ col.innerHTML=`
 <div class="list" id="dia-${dataStr}"></div>
 
 <button class="btn-agendar" onclick="abrirModal('${dataStr}')">+ Agendar</button>
-<button class="btn-agendar" onclick="colarVisita('${dataStr}')">📋 Colar</button>
 
 `;
 
@@ -232,26 +235,7 @@ function renderizarVisitas(){
 
 document.querySelectorAll(".list").forEach(l=>l.innerHTML="");
 
-const inicioSemana=getInicioSemana();
-const fimSemana=new Date(inicioSemana);
-fimSemana.setDate(inicioSemana.getDate()+6);
-
-const visitasOrdenadas=[...cacheVisitas].sort((a,b)=>{
-
-const dataA=new Date(a.data+"T"+a.hora);
-const dataB=new Date(b.data+"T"+b.hora);
-
-return dataA-dataB;
-
-});
-
-visitasOrdenadas.forEach(v=>{
-
-if(!v.data) return;
-
-const dataVisita=new Date(v.data+"T00:00");
-
-if(dataVisita<inicioSemana || dataVisita>fimSemana) return;
+cacheVisitas.forEach(v=>{
 
 const container=document.getElementById("dia-"+v.data);
 
@@ -259,34 +243,12 @@ if(container){
 
 container.innerHTML+=`
 
-<div class="card ${v.concluida?'done':''}">
-
-<div>
+<div class="card">
 
 <b>${v.hora}</b><br>
 ${v.nome}<br>
-
-<small>${v.contato || "-"}</small><br>
 <small>${v.imovel || "-"}</small><br>
-<small>${v.obs || "-"}</small><br>
-
 <small>⏰ ${v.despertar || 0} min antes</small>
-
-</div>
-
-<div class="card-actions">
-
-<span onclick="abrirWhatsapp('${v.contato}')">💬</span>
-<span onclick="copiarVisita(${JSON.stringify(v).replace(/"/g,'&quot;')})">📋</span>
-<span onclick="abrirModal('${v.data}', ${JSON.stringify(v).replace(/"/g,'&quot;')})">✏️</span>
-
-<span onclick="marcarConcluida('${v.id}', ${v.concluida})">
-${v.concluida ? '🔵' : '✔️'}
-</span>
-
-<span onclick="excluir('${v.id}')">🗑️</span>
-
-</div>
 
 </div>
 
@@ -298,65 +260,11 @@ ${v.concluida ? '🔵' : '✔️'}
 
 }
 
-window.copiarVisita=(visita)=>{
-visitaCopiada=visita;
-alert("Visita copiada!");
-}
-
-window.colarVisita=async(data)=>{
-
-if(!visitaCopiada){
-alert("Nenhuma visita copiada.");
-return;
-}
-
-const novaVisita={
-nome:visitaCopiada.nome,
-contato:visitaCopiada.contato,
-imovel:visitaCopiada.imovel,
-hora:visitaCopiada.hora,
-obs:visitaCopiada.obs,
-data:data,
-despertar:visitaCopiada.despertar,
-concluida:false
-};
-
-await addDoc(collection(db,"visitas"),novaVisita);
-
-}
-
-window.abrirWhatsapp=(numero)=>{
-
-if(!numero){
-alert("Número não cadastrado");
-return;
-}
-
-let numeroLimpo=numero.replace(/\D/g,'');
-
-if(numeroLimpo.length<=11){
-numeroLimpo="55"+numeroLimpo;
-}
-
-window.open(`https://api.whatsapp.com/send?phone=${numeroLimpo}`,"_blank");
-
-}
-
 window.addEventListener("DOMContentLoaded",()=>{
 
 montarBoard();
 
 setInterval(verificarAlarmes,5000);
-
-window.semanaAnterior=()=>{
-offsetSemana--;
-montarBoard();
-};
-
-window.semanaProxima=()=>{
-offsetSemana++;
-montarBoard();
-};
 
 onSnapshot(collection(db,"visitas"),(snapshot)=>{
 
@@ -375,3 +283,71 @@ renderizarVisitas();
 });
 
 </script>
+
+<style>
+
+body{margin:0;font-family:Arial;background:#e9eef5}
+
+header{
+background:#0b3a66;
+color:white;
+padding:15px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+}
+
+.board{
+display:flex;
+gap:10px;
+padding:10px;
+overflow-x:auto;
+}
+
+.col{
+background:#0b3a66;
+color:white;
+min-width:220px;
+border-radius:8px;
+padding:8px;
+}
+
+.card{
+background:white;
+color:#333;
+padding:10px;
+margin-bottom:8px;
+border-radius:6px;
+font-size:13px;
+}
+
+button{
+padding:6px 10px;
+background:white;
+color:#0b3a66;
+border:none;
+border-radius:5px;
+font-weight:bold;
+cursor:pointer;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+
+<div>Agenda Realiza Online</div>
+
+<div>
+<button onclick="ativarNotificacoes()">🔔 Ativar Notificações</button>
+</div>
+
+</header>
+
+<div class="board" id="board"></div>
+
+</body>
+</html>
