@@ -27,7 +27,6 @@ const dias = ["Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
 let offsetSemana = 0;
 let cacheVisitas = [];
 let alarmesDisparados = {};
-let visitaCopiada = null;
 
 let audio = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
 audio.preload="auto";
@@ -244,28 +243,24 @@ if(container){
 
 container.innerHTML+=`
 
-<div class="card ${v.concluida?'done':''}">
+<div class="card">
 
-<div>
+<div class="card-info">
 
-<b>${v.hora}</b><br>
-${v.nome}<br>
-<small>${v.imovel || "-"}</small><br>
-<small>⏰ ${v.despertar || 0} min antes</small>
+<b>${v.hora}</b>
+<span>${v.nome}</span>
+<span>${v.imovel || "-"}</span>
+<span>⏰ ${v.despertar || 0} min antes</span>
 
 </div>
 
 <div class="card-actions">
 
-<span onclick="abrirWhatsapp('${v.contato}')">💬</span>
-<span onclick="copiarVisita(${JSON.stringify(v).replace(/"/g,'&quot;')})">📋</span>
+<span onclick="abrirWhats('${v.nome}')">💬</span>
+<span onclick="copiarCard('${v.nome}','${v.imovel}','${v.hora}')">📋</span>
 <span onclick="editarVisita('${v.id}')">✏️</span>
-
-<span onclick="marcarConcluida('${v.id}', ${v.concluida})">
-${v.concluida ? '🔵' : '✔️'}
-</span>
-
-<span onclick="excluir('${v.id}')">🗑️</span>
+<span onclick="marcarVisitado('${v.id}',${v.concluida?true:false})">✔</span>
+<span onclick="apagarVisita('${v.id}')">🗑</span>
 
 </div>
 
@@ -279,36 +274,42 @@ ${v.concluida ? '🔵' : '✔️'}
 
 }
 
-window.copiarVisita=(visita)=>{
-visitaCopiada=visita;
-alert("Visita copiada!");
-}
+window.abrirWhats=(nome)=>{
+window.open(`https://wa.me/?text=Olá ${nome}, confirmando a visita.`,"_blank");
+};
 
-window.abrirWhatsapp=(numero)=>{
+window.copiarCard=(nome,imovel,hora)=>{
+navigator.clipboard.writeText(`Visita\nCliente: ${nome}\nImóvel: ${imovel}\nHorário: ${hora}`);
+};
 
-if(!numero) return;
+window.editarVisita=(id)=>{
 
-let numeroLimpo=numero.replace(/\D/g,'');
+const v=cacheVisitas.find(x=>x.id===id);
 
-if(numeroLimpo.length<=11){
-numeroLimpo="55"+numeroLimpo;
-}
+const nome=prompt("Cliente",v.nome);
+if(nome===null)return;
 
-window.open(`https://api.whatsapp.com/send?phone=${numeroLimpo}`,"_blank");
+const imovel=prompt("Imóvel",v.imovel);
+if(imovel===null)return;
 
-}
-
-window.excluir=async(id)=>{
-if(confirm("Excluir visita?")){
-await deleteDoc(doc(db,"visitas",id));
-}
-}
-
-window.marcarConcluida=async(id,atual)=>{
-await updateDoc(doc(db,"visitas",id),{
-concluida:!atual
+updateDoc(doc(db,"visitas",id),{
+nome,
+imovel
 });
+
+};
+
+window.marcarVisitado=(id,status)=>{
+updateDoc(doc(db,"visitas",id),{
+concluida:!status
+});
+};
+
+window.apagarVisita=(id)=>{
+if(confirm("Apagar visita?")){
+deleteDoc(doc(db,"visitas",id));
 }
+};
 
 window.addEventListener("DOMContentLoaded",()=>{
 
@@ -365,12 +366,19 @@ padding:8px;
 .card{
 background:white;
 color:#333;
-padding:10px;
+padding:8px;
 margin-bottom:8px;
 border-radius:6px;
+font-size:13px;
 display:flex;
 justify-content:space-between;
-font-size:13px;
+align-items:flex-start;
+}
+
+.card-info{
+display:flex;
+flex-direction:column;
+gap:2px;
 }
 
 .card-actions{
