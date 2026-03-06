@@ -25,7 +25,44 @@ const dias = ["Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
 
 let offsetSemana = 0;
 let cacheVisitas = [];
+let alarmTocando = false;
+let alarmesDisparados = {};
 let visitaCopiada = null;
+
+let audio = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
+
+function verificarAlarmes(){
+
+const agora = new Date();
+
+cacheVisitas.forEach(v=>{
+
+if(!v.data || !v.hora) return;
+
+const chave = v.id;
+
+const dataHoraVisita = new Date(v.data+"T"+v.hora);
+
+const minutosAntes = parseInt(v.despertar || 0);
+
+dataHoraVisita.setMinutes(dataHoraVisita.getMinutes() - minutosAntes);
+
+if(agora >= dataHoraVisita && !alarmesDisparados[chave] && !v.concluida){
+
+alarmesDisparados[chave] = true;
+
+audio.play();
+
+alert("🔔 Visita agora ou em breve!\n\nCliente: "+v.nome);
+
+audio.pause();
+audio.currentTime = 0;
+
+}
+
+});
+
+}
 
 function ativarNotificacoes(){
 
@@ -143,13 +180,15 @@ container.innerHTML+=`
 
 <div class="card ${v.concluida?'done':''}">
 
-<div class="card-info">
+<div>
 
-<b>${v.hora}</b>
-<div>${v.nome}</div>
-<small>${v.contato || "-"}</small>
-<small>${v.imovel || "-"}</small>
-<small>${v.obs || "-"}</small>
+<b>${v.hora}</b><br>
+${v.nome}<br>
+
+<small>${v.contato || "-"}</small><br>
+<small>${v.imovel || "-"}</small><br>
+<small>${v.obs || "-"}</small><br>
+
 <small>⏰ ${v.despertar || 0} min antes</small>
 
 </div>
@@ -179,8 +218,11 @@ ${v.concluida ? '🔵' : '✔️'}
 }
 
 window.copiarVisita=(visita)=>{
+
 visitaCopiada = visita;
+
 alert("Visita copiada! Clique em COLAR no dia desejado.");
+
 }
 
 window.colarVisita=async(data)=>{
@@ -225,6 +267,8 @@ window.open(`https://api.whatsapp.com/send?phone=${numeroLimpo}`,"_blank");
 window.addEventListener("DOMContentLoaded",()=>{
 
 montarBoard();
+
+setInterval(verificarAlarmes,10000);
 
 window.semanaAnterior=()=>{
 offsetSemana--;
@@ -341,19 +385,10 @@ margin-bottom:8px;
 border-radius:6px;
 display:flex;
 justify-content:space-between;
-align-items:flex-start;
 font-size:13px;
-gap:8px;
 }
 
 .card.done{opacity:0.4}
-
-.card-info{
-display:flex;
-flex-direction:column;
-gap:3px;
-line-height:1.2;
-}
 
 .card-actions{
 display:flex;
