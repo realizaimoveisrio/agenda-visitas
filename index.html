@@ -221,7 +221,6 @@ col.innerHTML=`
 <div class="list" id="dia-${dataStr}"></div>
 
 <button class="btn-agendar" onclick="abrirModal('${dataStr}')">+ Agendar</button>
-<button class="btn-agendar" onclick="colarVisita('${dataStr}')">📋 Colar</button>
 
 `;
 
@@ -251,11 +250,7 @@ container.innerHTML+=`
 
 <b>${v.hora}</b><br>
 ${v.nome}<br>
-
-<small>${v.contato || "-"}</small><br>
 <small>${v.imovel || "-"}</small><br>
-<small>${v.obs || "-"}</small><br>
-
 <small>⏰ ${v.despertar || 0} min antes</small>
 
 </div>
@@ -264,7 +259,7 @@ ${v.nome}<br>
 
 <span onclick="abrirWhatsapp('${v.contato}')">💬</span>
 <span onclick="copiarVisita(${JSON.stringify(v).replace(/"/g,'&quot;')})">📋</span>
-<span onclick="abrirModal('${v.data}', ${JSON.stringify(v).replace(/"/g,'&quot;')})">✏️</span>
+<span onclick="editarVisita('${v.id}')">✏️</span>
 
 <span onclick="marcarConcluida('${v.id}', ${v.concluida})">
 ${v.concluida ? '🔵' : '✔️'}
@@ -289,34 +284,9 @@ visitaCopiada=visita;
 alert("Visita copiada!");
 }
 
-window.colarVisita=async(data)=>{
-
-if(!visitaCopiada){
-alert("Nenhuma visita copiada.");
-return;
-}
-
-const novaVisita={
-nome:visitaCopiada.nome,
-contato:visitaCopiada.contato,
-imovel:visitaCopiada.imovel,
-hora:visitaCopiada.hora,
-obs:visitaCopiada.obs,
-data:data,
-despertar:visitaCopiada.despertar,
-concluida:false
-};
-
-await addDoc(collection(db,"visitas"),novaVisita);
-
-}
-
 window.abrirWhatsapp=(numero)=>{
 
-if(!numero){
-alert("Número não cadastrado");
-return;
-}
+if(!numero) return;
 
 let numeroLimpo=numero.replace(/\D/g,'');
 
@@ -326,6 +296,18 @@ numeroLimpo="55"+numeroLimpo;
 
 window.open(`https://api.whatsapp.com/send?phone=${numeroLimpo}`,"_blank");
 
+}
+
+window.excluir=async(id)=>{
+if(confirm("Excluir visita?")){
+await deleteDoc(doc(db,"visitas",id));
+}
+}
+
+window.marcarConcluida=async(id,atual)=>{
+await updateDoc(doc(db,"visitas",id),{
+concluida:!atual
+});
 }
 
 window.addEventListener("DOMContentLoaded",()=>{
@@ -351,3 +333,81 @@ renderizarVisitas();
 });
 
 </script>
+
+<style>
+
+body{margin:0;font-family:Arial;background:#e9eef5}
+
+header{
+background:#0b3a66;
+color:white;
+padding:15px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+}
+
+.board{
+display:flex;
+gap:10px;
+padding:10px;
+overflow-x:auto;
+}
+
+.col{
+background:#0b3a66;
+color:white;
+min-width:220px;
+border-radius:8px;
+padding:8px;
+}
+
+.card{
+background:white;
+color:#333;
+padding:10px;
+margin-bottom:8px;
+border-radius:6px;
+display:flex;
+justify-content:space-between;
+font-size:13px;
+}
+
+.card-actions{
+display:flex;
+flex-direction:column;
+gap:6px;
+font-size:18px;
+cursor:pointer;
+}
+
+button{
+padding:6px 10px;
+background:white;
+color:#0b3a66;
+border:none;
+border-radius:5px;
+font-weight:bold;
+cursor:pointer;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+
+<div>Agenda Realiza Online</div>
+
+<div>
+<button onclick="ativarNotificacoes()">🔔 Ativar Notificações</button>
+</div>
+
+</header>
+
+<div class="board" id="board"></div>
+
+</body>
+</html>
