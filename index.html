@@ -221,7 +221,7 @@ function renderizarVisitas(){
 
 document.querySelectorAll(".list").forEach(l=>l.innerHTML="");
 
-/* ORDENAÇÃO 100% POR HORÁRIO */
+/* ORDENAÇÃO AUTOMÁTICA POR HORÁRIO */
 
 const visitasOrdenadas=[...cacheVisitas].sort((a,b)=>{
 
@@ -275,19 +275,15 @@ lista.innerHTML+=`
 });
 
 }
-
-/* RESTANTE DO CÓDIGO CONTINUA EXATAMENTE IGUAL */
-
 </script>
 
 <style>
-
+/* CSS ORIGINAL MANTIDO */
 body{
 margin:0;
 font-family:Arial;
 background:#e9eef5;
 }
-
 header{
 background:#0b3a66;
 color:white;
@@ -295,14 +291,12 @@ padding:15px;
 display:flex;
 justify-content:space-between;
 }
-
 .board{
 display:flex;
 gap:10px;
 padding:10px;
 overflow-x:auto;
 }
-
 .col{
 background:#0b3a66;
 color:white;
@@ -310,11 +304,9 @@ min-width:230px;
 padding:8px;
 border-radius:8px;
 }
-
 .col.hoje{
 border:3px solid gold;
 }
-
 .card{
 background:white;
 color:#333;
@@ -325,17 +317,14 @@ display:flex;
 justify-content:space-between;
 font-size:13px;
 }
-
 .card.done{
 opacity:0.4;
 }
-
 .card-info{
 display:flex;
 flex-direction:column;
 gap:2px;
 }
-
 .card-actions{
 display:flex;
 flex-direction:column;
@@ -343,7 +332,6 @@ gap:6px;
 font-size:18px;
 cursor:pointer;
 }
-
 button{
 padding:6px;
 border:none;
@@ -351,7 +339,6 @@ border-radius:5px;
 cursor:pointer;
 margin-top:4px;
 }
-
 .modal{
 display:none;
 position:fixed;
@@ -360,7 +347,6 @@ background:rgba(0,0,0,0.6);
 align-items:center;
 justify-content:center;
 }
-
 .modal-box{
 background:white;
 padding:20px;
@@ -370,12 +356,10 @@ display:flex;
 flex-direction:column;
 gap:8px;
 }
-
 .modal-box input,
 .modal-box textarea{
 padding:6px;
 }
-
 </style>
 
 </head>
