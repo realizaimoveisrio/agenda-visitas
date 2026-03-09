@@ -105,9 +105,17 @@ OK
 
 document.body.appendChild(fundo);
 
-document.getElementById("okAlarme").onclick=()=>{
+/* CORREÇÃO DO MODAL */
+
+const botao=fundo.querySelector("#okAlarme");
+
+if(botao){
+botao.onclick=()=>{
+audio.pause();
+audio.currentTime=0;
 fundo.remove();
 };
+}
 
 }
 
@@ -116,7 +124,8 @@ fundo.remove();
 function tocarAlarme(visita){
 
 audio.currentTime=0;
-audio.play();
+
+audio.play().catch(()=>{});
 
 setTimeout(()=>{
 audio.pause();
@@ -257,11 +266,37 @@ lista.innerHTML+=`
 
 }
 
-/* BOTÕES */
+/* WHATSAPP CORRIGIDO */
 
 window.abrirWhats=(contato)=>{
-window.open(`https://wa.me/55${contato}`,"_blank");
+
+if(!contato)return;
+
+let numero=String(contato).replace(/\D/g,"");
+
+if(numero.length===9){
+numero="21"+numero;
+}
+
+if(numero.length===10){
+numero="55"+numero;
+}
+
+if(numero.length===11){
+numero="55"+numero;
+}
+
+if(!numero.startsWith("55")){
+numero="55"+numero;
+}
+
+const url=`https://wa.me/${numero}`;
+
+window.open(url,"_blank");
+
 };
+
+/* BOTÕES */
 
 window.copiarCard=(id)=>{
 
@@ -388,6 +423,8 @@ window.addEventListener("DOMContentLoaded",()=>{
 
 montarBoard();
 
+const inicioSistema=new Date().getTime();
+
 setInterval(()=>{
 
 const agora=new Date().getTime();
@@ -403,6 +440,10 @@ const horario=new Date(v.data+"T"+v.hora);
 horario.setMinutes(horario.getMinutes()-parseInt(v.despertar||0));
 
 const tempo=horario.getTime();
+
+/* NÃO DISPARAR ALARMES PASSADOS */
+
+if(tempo<inicioSistema)return;
 
 if(agora>=tempo&&!alarmesDisparados[chave]&&!v.concluida){
 
@@ -433,157 +474,3 @@ renderizarVisitas();
 });
 
 </script>
-
-<style>
-
-body{
-margin:0;
-font-family:Arial;
-background:#e9eef5;
-}
-
-header{
-background:#0b3a66;
-color:white;
-padding:15px;
-display:flex;
-justify-content:space-between;
-}
-
-.board{
-display:flex;
-gap:10px;
-padding:10px;
-overflow-x:auto;
-}
-
-.col{
-background:#0b3a66;
-color:white;
-min-width:230px;
-padding:8px;
-border-radius:8px;
-}
-
-.col.hoje{
-border:3px solid gold;
-}
-
-.card{
-background:white;
-color:#333;
-padding:8px;
-margin-bottom:8px;
-border-radius:6px;
-display:flex;
-justify-content:space-between;
-font-size:13px;
-}
-
-.card.done{
-opacity:0.4;
-}
-
-.card-info{
-display:flex;
-flex-direction:column;
-gap:2px;
-}
-
-.card-actions{
-display:flex;
-flex-direction:column;
-gap:6px;
-font-size:18px;
-cursor:pointer;
-}
-
-button{
-padding:6px;
-border:none;
-border-radius:5px;
-cursor:pointer;
-margin-top:4px;
-}
-
-.modal{
-display:none;
-position:fixed;
-inset:0;
-background:rgba(0,0,0,0.6);
-align-items:center;
-justify-content:center;
-}
-
-.modal-box{
-background:white;
-padding:20px;
-border-radius:8px;
-width:300px;
-display:flex;
-flex-direction:column;
-gap:8px;
-}
-
-.modal-box input,
-.modal-box textarea{
-padding:6px;
-}
-
-</style>
-
-</head>
-
-<body>
-
-<header>
-
-<div>Agenda Realiza Online</div>
-
-<div>
-
-<button onclick="semanaAnterior()">⬅ Semana anterior</button>
-
-<button onclick="semanaProxima()">Semana seguinte ➡</button>
-
-<button onclick="ativarNotificacoes()">🔔 Ativar Notificações</button>
-
-</div>
-
-</header>
-
-<div class="board" id="board"></div>
-
-<div class="modal" id="modal">
-
-<div class="modal-box">
-
-<input type="hidden" id="modalData">
-
-<label>Cliente</label>
-<input id="cliente">
-
-<label>Contato</label>
-<input id="contato">
-
-<label>Imóvel</label>
-<input id="imovel">
-
-<label>Hora</label>
-<input type="time" id="hora">
-
-<label>Despertar antes</label>
-<input type="number" id="despertar">
-
-<label>Observação</label>
-<textarea id="obs"></textarea>
-
-<button onclick="salvarVisita()">Salvar</button>
-<button onclick="fecharModal()">Cancelar</button>
-
-</div>
-
-</div>
-
-</body>
-</html>
