@@ -74,7 +74,7 @@ fundo.style.background="rgba(0,0,0,0.7)";
 fundo.style.display="flex";
 fundo.style.alignItems="center";
 fundo.style.justifyContent="center";
-fundo.style.zIndex="9999";
+fundo.style.zIndex="999999";
 
 fundo.innerHTML=`
 
@@ -105,9 +105,19 @@ OK
 
 document.body.appendChild(fundo);
 
-document.getElementById("okAlarme").onclick=()=>{
+setTimeout(()=>{
+
+const btn=document.getElementById("okAlarme");
+
+if(btn){
+btn.onclick=()=>{
+audio.pause();
+audio.currentTime=0;
 fundo.remove();
 };
+}
+
+},50);
 
 }
 
@@ -117,11 +127,6 @@ function tocarAlarme(visita){
 
 audio.currentTime=0;
 audio.play();
-
-setTimeout(()=>{
-audio.pause();
-audio.currentTime=0;
-},5000);
 
 mostrarModalAlerta(visita);
 
@@ -213,7 +218,19 @@ function renderizarVisitas(){
 
 document.querySelectorAll(".list").forEach(l=>l.innerHTML="");
 
-cacheVisitas.forEach(v=>{
+/* ORDENA POR DATA E HORA */
+
+const visitasOrdenadas=[...cacheVisitas].sort((a,b)=>{
+
+if(a.data===b.data){
+return a.hora.localeCompare(b.hora);
+}
+
+return a.data.localeCompare(b.data);
+
+});
+
+visitasOrdenadas.forEach(v=>{
 
 const lista=document.getElementById("dia-"+v.data);
 
