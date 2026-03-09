@@ -36,13 +36,10 @@ let audio=new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg
 /* DATA */
 
 function formatarDataLocal(data){
-
 const ano=data.getFullYear();
 const mes=String(data.getMonth()+1).padStart(2,"0");
 const dia=String(data.getDate()).padStart(2,"0");
-
 return `${ano}-${mes}-${dia}`;
-
 }
 
 /* NOTIFICAÇÕES */
@@ -94,7 +91,8 @@ Cliente: ${visita.nome}<br>
 Imóvel: ${visita.imovel}<br>
 Horário: ${visita.hora}<br><br>
 
-<button id="okAlarme" style="padding:10px 20px;font-size:18px;border:none;border-radius:6px;cursor:pointer;">
+<button id="okAlarme"
+style="padding:10px 20px;font-size:18px;border:none;border-radius:6px;cursor:pointer;">
 OK
 </button>
 
@@ -104,14 +102,20 @@ OK
 
 document.body.appendChild(fundo);
 
-document.getElementById("okAlarme").onclick=()=>{
+/* EVENTO GARANTIDO */
+
+fundo.addEventListener("click",(e)=>{
+
+if(e.target.id==="okAlarme"){
 
 audio.pause();
 audio.currentTime=0;
 
 fundo.remove();
 
-};
+}
+
+});
 
 }
 
@@ -574,4 +578,4 @@ padding:6px;
 </div>
 
 </body>
-</html>10:41 09/03/2026
+</html>
