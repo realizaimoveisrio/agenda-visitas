@@ -28,18 +28,41 @@ let cacheVisitas=[];
 let alarmesDisparados={};
 let offsetSemana=0;
 
+let visitaCopiada=null;
+let editandoId=null;
+
 let audio=new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
 
 /* DATA */
 
 function formatarDataLocal(data){
+
 const ano=data.getFullYear();
 const mes=String(data.getMonth()+1).padStart(2,"0");
 const dia=String(data.getDate()).padStart(2,"0");
+
 return `${ano}-${mes}-${dia}`;
+
 }
 
-/* ALERTA VISITA */
+/* NOTIFICAÇÕES */
+
+window.ativarNotificacoes=()=>{
+
+if(!("Notification" in window)){
+alert("Seu navegador não suporta notificações.");
+return;
+}
+
+Notification.requestPermission().then(permission=>{
+if(permission==="granted"){
+alert("🔔 Notificações ativadas!");
+}
+});
+
+};
+
+/* MODAL ALERTA VERMELHO */
 
 function mostrarModalAlerta(visita){
 
@@ -51,7 +74,7 @@ fundo.style.background="rgba(0,0,0,0.7)";
 fundo.style.display="flex";
 fundo.style.alignItems="center";
 fundo.style.justifyContent="center";
-fundo.style.zIndex="99999";
+fundo.style.zIndex="9999";
 
 fundo.innerHTML=`
 
@@ -71,27 +94,20 @@ Cliente: ${visita.nome}<br>
 Imóvel: ${visita.imovel}<br>
 Horário: ${visita.hora}<br><br>
 
-<button id="okAlarme" style="
-padding:10px 20px;
-font-size:18px;
-border:none;
-border-radius:6px;
-cursor:pointer;">
+<button id="okAlarme"
+style="padding:10px 20px;font-size:18px;border:none;border-radius:6px;cursor:pointer;">
 OK
 </button>
 
 </div>
+
 `;
 
 document.body.appendChild(fundo);
 
-const botao=fundo.querySelector("#okAlarme");
-
-botao.addEventListener("click",()=>{
-audio.pause();
-audio.currentTime=0;
+document.getElementById("okAlarme").onclick=()=>{
 fundo.remove();
-});
+};
 
 }
 
@@ -109,38 +125,15 @@ audio.currentTime=0;
 
 mostrarModalAlerta(visita);
 
+if(Notification.permission==="granted"){
+
+new Notification("Visita próxima",{
+body:`${visita.nome} - ${visita.hora}`
+});
+
 }
 
-/* WHATSAPP */
-
-window.abrirWhats=(contato)=>{
-
-if(!contato){
-alert("Número inválido");
-return;
 }
-
-let numero=contato.replace(/\D/g,"");
-
-if(numero.length===9){
-numero="21"+numero;
-}
-
-if(numero.length===10){
-numero="55"+numero;
-}
-
-if(numero.length===11){
-numero="55"+numero;
-}
-
-if(!numero.startsWith("55")){
-numero="55"+numero;
-}
-
-window.open(`https://wa.me/${numero}`,"_blank");
-
-};
 
 /* SEMANA */
 
@@ -179,6 +172,7 @@ const board=document.getElementById("board");
 board.innerHTML="";
 
 const inicioSemana=getInicioSemana();
+const hojeStr=formatarDataLocal(new Date());
 
 for(let i=0;i<6;i++){
 
@@ -190,11 +184,18 @@ const dataStr=formatarDataLocal(data);
 const col=document.createElement("div");
 col.className="col";
 
+if(dataStr===hojeStr){
+col.classList.add("hoje");
+}
+
 col.innerHTML=`
 
 <h3>${dias[i]}<br><small>${data.toLocaleDateString()}</small></h3>
 
 <div class="list" id="dia-${dataStr}"></div>
+
+<button onclick="abrirModal('${dataStr}')">+ Agendar</button>
+<button onclick="colarVisita('${dataStr}')">📥 Colar</button>
 
 `;
 
@@ -206,37 +207,45 @@ renderizarVisitas();
 
 }
 
-/* RENDER VISITAS */
+/* RENDER */
 
 function renderizarVisitas(){
 
 document.querySelectorAll(".list").forEach(l=>l.innerHTML="");
 
-const visitasOrdenadas=[...cacheVisitas].sort((a,b)=>{
-return (a.hora||"").localeCompare(b.hora||"");
-});
-
-visitasOrdenadas.forEach(v=>{
+cacheVisitas.forEach(v=>{
 
 const lista=document.getElementById("dia-"+v.data);
+
 if(!lista)return;
 
 lista.innerHTML+=`
 
-<div class="card">
+<div class="card ${v.concluida?'done':''}">
 
-<div>
+<div class="card-info">
 
-<b>${v.hora}</b><br>
-${v.nome}<br>
-${v.imovel}<br>
-${v.contato}
+<b>${v.hora}</b>
+<span>${v.nome}</span>
+<span>${v.imovel}</span>
+<span>${v.contato}</span>
+
+<small>⏰ ${v.despertar} min antes</small>
+<small>${v.obs||""}</small>
 
 </div>
 
-<div>
+<div class="card-actions">
 
 <span onclick="abrirWhats('${v.contato}')">💬</span>
+
+<span onclick="copiarCard('${v.id}')">📋</span>
+
+<span onclick="editarVisita('${v.id}')">✏</span>
+
+<span onclick="marcarVisitado('${v.id}',${v.concluida})">✔</span>
+
+<span onclick="apagarVisita('${v.id}')">🗑</span>
 
 </div>
 
@@ -248,7 +257,132 @@ ${v.contato}
 
 }
 
-/* FIREBASE */
+/* BOTÕES */
+
+window.abrirWhats=(contato)=>{
+window.open(`https://wa.me/55${contato}`,"_blank");
+};
+
+window.copiarCard=(id)=>{
+
+const v=cacheVisitas.find(x=>x.id===id);
+
+visitaCopiada={...v};
+
+alert("Visita copiada");
+
+};
+
+window.colarVisita=async(data)=>{
+
+if(!visitaCopiada){
+alert("Nenhuma visita copiada");
+return;
+}
+
+const nova={...visitaCopiada};
+delete nova.id;
+
+nova.data=data;
+
+await addDoc(collection(db,"visitas"),nova);
+
+};
+
+window.marcarVisitado=async(id,status)=>{
+
+await updateDoc(doc(db,"visitas",id),{
+concluida:!status
+});
+
+};
+
+window.apagarVisita=async(id)=>{
+
+if(confirm("Apagar visita?")){
+await deleteDoc(doc(db,"visitas",id));
+}
+
+};
+
+/* EDITAR */
+
+window.editarVisita=(id)=>{
+
+const v=cacheVisitas.find(x=>x.id===id);
+
+editandoId=id;
+
+delete alarmesDisparados[id];
+
+document.getElementById("cliente").value=v.nome;
+document.getElementById("contato").value=v.contato;
+document.getElementById("imovel").value=v.imovel;
+document.getElementById("hora").value=v.hora;
+document.getElementById("despertar").value=v.despertar;
+document.getElementById("obs").value=v.obs||"";
+document.getElementById("modalData").value=v.data;
+
+document.getElementById("modal").style.display="flex";
+
+};
+
+/* AGENDAR */
+
+window.abrirModal=(data)=>{
+
+editandoId=null;
+
+document.getElementById("modalData").value=data;
+
+document.getElementById("cliente").value="";
+document.getElementById("contato").value="";
+document.getElementById("imovel").value="";
+document.getElementById("hora").value="";
+document.getElementById("despertar").value=10;
+document.getElementById("obs").value="";
+
+document.getElementById("modal").style.display="flex";
+
+};
+
+window.salvarVisita=async()=>{
+
+const dados={
+
+nome:document.getElementById("cliente").value,
+contato:document.getElementById("contato").value,
+imovel:document.getElementById("imovel").value,
+hora:document.getElementById("hora").value,
+despertar:document.getElementById("despertar").value,
+obs:document.getElementById("obs").value,
+data:document.getElementById("modalData").value
+
+};
+
+if(editandoId){
+
+await updateDoc(doc(db,"visitas",editandoId),dados);
+
+delete alarmesDisparados[editandoId];
+
+}else{
+
+dados.concluida=false;
+
+await addDoc(collection(db,"visitas"),dados);
+
+}
+
+fecharModal();
+
+};
+
+window.fecharModal=()=>{
+document.getElementById("modal").style.display="none";
+};
+
+/* FIRESTORE */
 
 window.addEventListener("DOMContentLoaded",()=>{
 
@@ -270,7 +404,7 @@ horario.setMinutes(horario.getMinutes()-parseInt(v.despertar||0));
 
 const tempo=horario.getTime();
 
-if(agora>=tempo&&!alarmesDisparados[chave]){
+if(agora>=tempo&&!alarmesDisparados[chave]&&!v.concluida){
 
 alarmesDisparados[chave]=true;
 
@@ -331,6 +465,10 @@ padding:8px;
 border-radius:8px;
 }
 
+.col.hoje{
+border:3px solid gold;
+}
+
 .card{
 background:white;
 color:#333;
@@ -340,6 +478,56 @@ border-radius:6px;
 display:flex;
 justify-content:space-between;
 font-size:13px;
+}
+
+.card.done{
+opacity:0.4;
+}
+
+.card-info{
+display:flex;
+flex-direction:column;
+gap:2px;
+}
+
+.card-actions{
+display:flex;
+flex-direction:column;
+gap:6px;
+font-size:18px;
+cursor:pointer;
+}
+
+button{
+padding:6px;
+border:none;
+border-radius:5px;
+cursor:pointer;
+margin-top:4px;
+}
+
+.modal{
+display:none;
+position:fixed;
+inset:0;
+background:rgba(0,0,0,0.6);
+align-items:center;
+justify-content:center;
+}
+
+.modal-box{
+background:white;
+padding:20px;
+border-radius:8px;
+width:300px;
+display:flex;
+flex-direction:column;
+gap:8px;
+}
+
+.modal-box input,
+.modal-box textarea{
+padding:6px;
 }
 
 </style>
@@ -358,11 +546,44 @@ font-size:13px;
 
 <button onclick="semanaProxima()">Semana seguinte ➡</button>
 
+<button onclick="ativarNotificacoes()">🔔 Ativar Notificações</button>
+
 </div>
 
 </header>
 
 <div class="board" id="board"></div>
+
+<div class="modal" id="modal">
+
+<div class="modal-box">
+
+<input type="hidden" id="modalData">
+
+<label>Cliente</label>
+<input id="cliente">
+
+<label>Contato</label>
+<input id="contato">
+
+<label>Imóvel</label>
+<input id="imovel">
+
+<label>Hora</label>
+<input type="time" id="hora">
+
+<label>Despertar antes</label>
+<input type="number" id="despertar">
+
+<label>Observação</label>
+<textarea id="obs"></textarea>
+
+<button onclick="salvarVisita()">Salvar</button>
+<button onclick="fecharModal()">Cancelar</button>
+
+</div>
+
+</div>
 
 </body>
 </html>
