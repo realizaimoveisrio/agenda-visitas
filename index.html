@@ -33,19 +33,12 @@ let editandoId=null;
 
 let audio=new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
 
-/* DATA */
-
 function formatarDataLocal(data){
-
 const ano=data.getFullYear();
 const mes=String(data.getMonth()+1).padStart(2,"0");
 const dia=String(data.getDate()).padStart(2,"0");
-
 return `${ano}-${mes}-${dia}`;
-
 }
-
-/* NOTIFICAÇÕES */
 
 window.ativarNotificacoes=()=>{
 
@@ -61,8 +54,6 @@ alert("🔔 Notificações ativadas!");
 });
 
 };
-
-/* MODAL ALERTA */
 
 function mostrarModalAlerta(visita){
 
@@ -108,8 +99,6 @@ fundo.remove();
 
 }
 
-/* TOCAR ALARME */
-
 function tocarAlarme(visita){
 
 audio.currentTime=0;
@@ -131,8 +120,6 @@ body:`${visita.nome} - ${visita.hora}`
 }
 
 }
-
-/* SEMANA */
 
 function getInicioSemana(){
 
@@ -160,8 +147,6 @@ window.semanaProxima=()=>{
 offsetSemana++;
 montarBoard();
 };
-
-/* BOARD */
 
 function montarBoard(){
 
@@ -203,8 +188,6 @@ board.appendChild(col);
 renderizarVisitas();
 
 }
-
-/* VISITAS ORDENADAS */
 
 function renderizarVisitas(){
 
@@ -260,8 +243,6 @@ lista.innerHTML+=`
 
 }
 
-/* WHATSAPP */
-
 window.abrirWhats=(contato)=>{
 
 let numero=contato.replace(/\D/g,"");
@@ -273,8 +254,6 @@ numero="55"+numero;
 window.open(`https://wa.me/${numero}`,"_blank");
 
 };
-
-/* BOTÕES */
 
 window.copiarCard=(id)=>{
 
@@ -318,15 +297,11 @@ await deleteDoc(doc(db,"visitas",id));
 
 };
 
-/* EDITAR */
-
 window.editarVisita=(id)=>{
 
 const v=cacheVisitas.find(x=>x.id===id);
 
 editandoId=id;
-
-delete alarmesDisparados[id];
 
 document.getElementById("cliente").value=v.nome;
 document.getElementById("contato").value=v.contato;
@@ -339,8 +314,6 @@ document.getElementById("modalData").value=v.data;
 document.getElementById("modal").style.display="flex";
 
 };
-
-/* MODAL */
 
 window.abrirModal=(data)=>{
 
@@ -374,15 +347,10 @@ data:document.getElementById("modalData").value
 };
 
 if(editandoId){
-
 await updateDoc(doc(db,"visitas",editandoId),dados);
-delete alarmesDisparados[editandoId];
-
 }else{
-
 dados.concluida=false;
 await addDoc(collection(db,"visitas"),dados);
-
 }
 
 fecharModal();
@@ -393,49 +361,9 @@ window.fecharModal=()=>{
 document.getElementById("modal").style.display="none";
 };
 
-/* FIRESTORE + ALARME PROFISSIONAL */
-
 window.addEventListener("DOMContentLoaded",()=>{
 
 montarBoard();
-
-setInterval(()=>{
-
-const agora=new Date();
-
-cacheVisitas.forEach(v=>{
-
-if(!v.data || !v.hora) return;
-
-const chave=v.id;
-
-const horarioVisita=new Date(v.data+"T"+v.hora);
-
-const horarioAlarme=new Date(horarioVisita);
-
-horarioAlarme.setMinutes(
-horarioAlarme.getMinutes()-parseInt(v.despertar||0)
-);
-
-const diferenca=(horarioAlarme-agora)/1000;
-
-if(
-diferenca<=5 &&
-diferenca>=-5 &&
-!alarmesDisparados[chave] &&
-!v.concluida &&
-horarioVisita>agora
-){
-
-alarmesDisparados[chave]=true;
-
-tocarAlarme(v);
-
-}
-
-});
-
-},3000);
 
 onSnapshot(collection(db,"visitas"),(snapshot)=>{
 
@@ -466,9 +394,22 @@ background:#e9eef5;
 header{
 background:#0b3a66;
 color:white;
-padding:15px;
+padding:10px 15px;
 display:flex;
+align-items:center;
 justify-content:space-between;
+}
+
+.logo-area{
+display:flex;
+align-items:center;
+gap:10px;
+font-size:20px;
+font-weight:bold;
+}
+
+.logo{
+height:45px;
 }
 
 .board{
@@ -559,14 +500,15 @@ padding:6px;
 
 <header>
 
-<div>Agenda Realiza Online</div>
+<div class="logo-area">
+<img src="logo.png" class="logo">
+<span>Agenda Realiza Online</span>
+</div>
 
 <div>
-
 <button onclick="semanaAnterior()">⬅ Semana anterior</button>
 <button onclick="semanaProxima()">Semana seguinte ➡</button>
 <button onclick="ativarNotificacoes()">🔔 Ativar Notificações</button>
-
 </div>
 
 </header>
