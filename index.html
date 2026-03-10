@@ -30,8 +30,6 @@ let offsetSemana=0;
 let visitaCopiada=null;
 let editandoId=null;
 
-/* DATA */
-
 function formatarDataLocal(data){
 const ano=data.getFullYear();
 const mes=String(data.getMonth()+1).padStart(2,"0");
@@ -39,30 +37,21 @@ const dia=String(data.getDate()).padStart(2,"0");
 return `${ano}-${mes}-${dia}`;
 }
 
-/* NOTIFICAÇÕES */
-
 window.ativarNotificacoes=()=>{
-
 if(!("Notification" in window)){
 alert("Seu navegador não suporta notificações.");
 return;
 }
-
 Notification.requestPermission().then(permission=>{
 if(permission==="granted"){
 alert("🔔 Notificações ativadas!");
 }
 });
-
 };
 
-/* SEMANA */
-
 function getInicioSemana(){
-
 const hoje=new Date();
 const dia=hoje.getDay();
-
 const segunda=new Date(hoje);
 
 segunda.setDate(
@@ -70,9 +59,7 @@ hoje.getDate()-(dia===0?6:dia-1)+(offsetSemana*7)
 );
 
 segunda.setHours(0,0,0,0);
-
 return segunda;
-
 }
 
 window.semanaAnterior=()=>{
@@ -84,8 +71,6 @@ window.semanaProxima=()=>{
 offsetSemana++;
 montarBoard();
 };
-
-/* BOARD */
 
 function montarBoard(){
 
@@ -121,14 +106,10 @@ col.innerHTML=`
 `;
 
 board.appendChild(col);
-
 }
 
 renderizarVisitas();
-
 }
-
-/* VISITAS */
 
 function renderizarVisitas(){
 
@@ -147,7 +128,6 @@ return (a.data||"").localeCompare(b.data||"");
 visitasOrdenadas.forEach(v=>{
 
 const lista=document.getElementById("dia-"+v.data);
-
 if(!lista)return;
 
 lista.innerHTML+=`
@@ -161,6 +141,7 @@ lista.innerHTML+=`
 <span>${v.imovel}</span>
 <span>${v.contato}</span>
 
+<small>⏰ ${v.despertar||0} min antes</small>
 <small>${v.obs||""}</small>
 
 </div>
@@ -179,21 +160,15 @@ lista.innerHTML+=`
 `;
 
 });
-
 }
 
-/* FUNÇÕES */
-
 window.copiarCard=(id)=>{
-
 const v=cacheVisitas.find(x=>x.id===id);
 visitaCopiada={...v};
 alert("Visita copiada");
-
 };
 
 window.colarVisita=async(data)=>{
-
 if(!visitaCopiada){
 alert("Nenhuma visita copiada");
 return;
@@ -201,49 +176,38 @@ return;
 
 const nova={...visitaCopiada};
 delete nova.id;
-
 nova.data=data;
 
 await addDoc(collection(db,"visitas"),nova);
-
 };
 
 window.marcarVisitado=async(id,status)=>{
-
 await updateDoc(doc(db,"visitas",id),{
 concluida:!status
 });
-
 };
 
 window.apagarVisita=async(id)=>{
-
 if(confirm("Apagar visita?")){
 await deleteDoc(doc(db,"visitas",id));
 }
-
 };
-
-/* EDITAR */
 
 window.editarVisita=(id)=>{
 
 const v=cacheVisitas.find(x=>x.id===id);
-
 editandoId=id;
 
 document.getElementById("cliente").value=v.nome;
 document.getElementById("contato").value=v.contato;
 document.getElementById("imovel").value=v.imovel;
 document.getElementById("hora").value=v.hora;
+document.getElementById("despertar").value=v.despertar||10;
 document.getElementById("obs").value=v.obs||"";
 document.getElementById("modalData").value=v.data;
 
 document.getElementById("modal").style.display="flex";
-
 };
-
-/* MODAL */
 
 window.abrirModal=(data)=>{
 
@@ -255,10 +219,10 @@ document.getElementById("cliente").value="";
 document.getElementById("contato").value="";
 document.getElementById("imovel").value="";
 document.getElementById("hora").value="";
+document.getElementById("despertar").value=10;
 document.getElementById("obs").value="";
 
 document.getElementById("modal").style.display="flex";
-
 };
 
 window.salvarVisita=async()=>{
@@ -269,31 +233,25 @@ nome:document.getElementById("cliente").value,
 contato:document.getElementById("contato").value,
 imovel:document.getElementById("imovel").value,
 hora:document.getElementById("hora").value,
+despertar:document.getElementById("despertar").value,
 obs:document.getElementById("obs").value,
 data:document.getElementById("modalData").value
 
 };
 
 if(editandoId){
-
 await updateDoc(doc(db,"visitas",editandoId),dados);
-
 }else{
-
 dados.concluida=false;
 await addDoc(collection(db,"visitas"),dados);
-
 }
 
 fecharModal();
-
 };
 
 window.fecharModal=()=>{
 document.getElementById("modal").style.display="none";
 };
-
-/* FIRESTORE */
 
 window.addEventListener("DOMContentLoaded",()=>{
 
@@ -325,8 +283,6 @@ font-family:Arial;
 background:#e9eef5;
 }
 
-/* HEADER */
-
 .topbar{
 background:#0b3a66;
 color:white;
@@ -355,8 +311,6 @@ height:40px;
 .header-buttons button{
 margin-left:5px;
 }
-
-/* BOARD */
 
 .board{
 display:flex;
@@ -484,6 +438,9 @@ Agenda Realiza Online
 <label>Hora</label>
 <input type="time" id="hora">
 
+<label>Despertar antes (minutos)</label>
+<input type="number" id="despertar" value="10">
+
 <label>Observação</label>
 <textarea id="obs"></textarea>
 
@@ -496,3 +453,4 @@ Agenda Realiza Online
 
 </body>
 </html>
+
