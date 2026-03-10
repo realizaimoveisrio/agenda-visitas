@@ -36,10 +36,13 @@ let audio=new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg
 /* DATA */
 
 function formatarDataLocal(data){
+
 const ano=data.getFullYear();
 const mes=String(data.getMonth()+1).padStart(2,"0");
 const dia=String(data.getDate()).padStart(2,"0");
+
 return `${ano}-${mes}-${dia}`;
+
 }
 
 /* NOTIFICAÇÕES */
@@ -86,6 +89,7 @@ Horário: ${visita.hora}<br><br>
 <button id="okAlarme" style="padding:10px 20px;font-size:18px;border:none;border-radius:6px;cursor:pointer;">OK</button>
 
 </div>
+
 `;
 
 document.body.appendChild(fundo);
@@ -104,7 +108,7 @@ fundo.remove();
 
 }
 
-/* ALARME */
+/* TOCAR ALARME */
 
 function tocarAlarme(visita){
 
@@ -200,7 +204,7 @@ renderizarVisitas();
 
 }
 
-/* RENDER VISITAS ORDENADAS */
+/* VISITAS ORDENADAS */
 
 function renderizarVisitas(){
 
@@ -389,7 +393,7 @@ window.fecharModal=()=>{
 document.getElementById("modal").style.display="none";
 };
 
-/* FIREBASE */
+/* FIRESTORE + ALARME PROFISSIONAL */
 
 window.addEventListener("DOMContentLoaded",()=>{
 
@@ -397,35 +401,41 @@ montarBoard();
 
 setInterval(()=>{
 
-const agora=new Date().getTime();
+const agora=new Date();
 
 cacheVisitas.forEach(v=>{
 
-if(!v.data||!v.hora)return;
+if(!v.data || !v.hora) return;
 
 const chave=v.id;
 
-const horario=new Date(v.data+"T"+v.hora);
+const horarioVisita=new Date(v.data+"T"+v.hora);
 
-horario.setMinutes(horario.getMinutes()-parseInt(v.despertar||0));
+const horarioAlarme=new Date(horarioVisita);
 
-const tempo=horario.getTime();
+horarioAlarme.setMinutes(
+horarioAlarme.getMinutes()-parseInt(v.despertar||0)
+);
+
+const diferenca=(horarioAlarme-agora)/1000;
 
 if(
-agora>=tempo &&
-tempo>(Date.now()-60000) &&
+diferenca<=5 &&
+diferenca>=-5 &&
 !alarmesDisparados[chave] &&
-!v.concluida
+!v.concluida &&
+horarioVisita>agora
 ){
 
 alarmesDisparados[chave]=true;
+
 tocarAlarme(v);
 
 }
 
 });
 
-},5000);
+},3000);
 
 onSnapshot(collection(db,"visitas"),(snapshot)=>{
 
