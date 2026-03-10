@@ -36,11 +36,31 @@ let audio=new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg
 /* DATA */
 
 function formatarDataLocal(data){
+
 const ano=data.getFullYear();
 const mes=String(data.getMonth()+1).padStart(2,"0");
 const dia=String(data.getDate()).padStart(2,"0");
+
 return `${ano}-${mes}-${dia}`;
+
 }
+
+/* NOTIFICAÇÕES */
+
+window.ativarNotificacoes=()=>{
+
+if(!("Notification" in window)){
+alert("Seu navegador não suporta notificações.");
+return;
+}
+
+Notification.requestPermission().then(permission=>{
+if(permission==="granted"){
+alert("🔔 Notificações ativadas!");
+}
+});
+
+};
 
 /* MODAL ALERTA */
 
@@ -74,9 +94,17 @@ Horário: ${visita.hora}<br><br>
 
 document.body.appendChild(fundo);
 
-document.getElementById("okAlarme").onclick=()=>{
+setTimeout(()=>{
+
+const btn=document.getElementById("okAlarme");
+
+if(btn){
+btn.addEventListener("click",()=>{
 fundo.remove();
-};
+});
+}
+
+},10);
 
 }
 
@@ -93,6 +121,14 @@ audio.currentTime=0;
 },5000);
 
 mostrarModalAlerta(visita);
+
+if(Notification.permission==="granted"){
+
+new Notification("Visita próxima",{
+body:`${visita.nome} - ${visita.hora}`
+});
+
+}
 
 }
 
@@ -168,7 +204,7 @@ renderizarVisitas();
 
 }
 
-/* VISITAS */
+/* VISITAS ORDENADAS */
 
 function renderizarVisitas(){
 
@@ -201,13 +237,14 @@ lista.innerHTML+=`
 <span>${v.imovel}</span>
 <span>${v.contato}</span>
 
-<small>⏰ ${v.despertar||0} min antes</small>
+<small>⏰ ${v.despertar} min antes</small>
 <small>${v.obs||""}</small>
 
 </div>
 
 <div class="card-actions">
 
+<span onclick="abrirWhats('${v.contato}')">💬</span>
 <span onclick="copiarCard('${v.id}')">📋</span>
 <span onclick="editarVisita('${v.id}')">✏</span>
 <span onclick="marcarVisitado('${v.id}',${v.concluida})">✔</span>
@@ -223,68 +260,19 @@ lista.innerHTML+=`
 
 }
 
-/* ALARME PROFISSIONAL */
+/* WHATSAPP */
 
-setInterval(()=>{
+window.abrirWhats=(contato)=>{
 
-const agora=new Date();
+let numero=contato.replace(/\D/g,"");
 
-cacheVisitas.forEach(v=>{
-
-if(!v.data || !v.hora) return;
-
-const chave=v.id;
-
-const horarioVisita=new Date(v.data+"T"+v.hora);
-
-const horarioAlarme=new Date(horarioVisita);
-
-horarioAlarme.setMinutes(
-horarioAlarme.getMinutes()-parseInt(v.despertar||0)
-);
-
-const diferenca=(horarioAlarme-agora)/1000;
-
-if(
-diferenca<=5 &&
-diferenca>=-5 &&
-!alarmesDisparados[chave] &&
-!v.concluida &&
-horarioVisita>agora
-){
-
-alarmesDisparados[chave]=true;
-
-tocarAlarme(v);
-
+if(numero.length==11 || numero.length==10){
+numero="55"+numero;
 }
 
-});
+window.open(`https://wa.me/${numero}`,"_blank");
 
-},3000);
-
-/* FIRESTORE */
-
-window.addEventListener("DOMContentLoaded",()=>{
-
-montarBoard();
-
-onSnapshot(collection(db,"visitas"),(snapshot)=>{
-
-cacheVisitas=[];
-alarmesDisparados={};
-
-snapshot.forEach(docSnap=>{
-const v=docSnap.data();
-v.id=docSnap.id;
-cacheVisitas.push(v);
-});
-
-renderizarVisitas();
-
-});
-
-});
+};
 
 </script>
 
@@ -296,33 +284,20 @@ font-family:Arial;
 background:#e9eef5;
 }
 
-.topbar{
+header{
 background:#0b3a66;
 color:white;
-padding:10px 20px;
+padding:15px;
 display:flex;
-align-items:center;
 justify-content:space-between;
 position:relative;
-}
-
-.titulo{
-font-size:20px;
-font-weight:bold;
 }
 
 .logo-centro{
 position:absolute;
 left:50%;
 transform:translateX(-50%);
-}
-
-.logo-centro img{
 height:40px;
-}
-
-.header-buttons button{
-margin-left:5px;
 }
 
 .board{
@@ -381,87 +356,29 @@ cursor:pointer;
 margin-top:4px;
 }
 
-.modal{
-display:none;
-position:fixed;
-inset:0;
-background:rgba(0,0,0,0.6);
-align-items:center;
-justify-content:center;
-}
-
-.modal-box{
-background:white;
-padding:20px;
-border-radius:8px;
-width:300px;
-display:flex;
-flex-direction:column;
-gap:8px;
-}
-
-.modal-box input,
-.modal-box textarea{
-padding:6px;
-}
-
 </style>
 
 </head>
 
 <body>
 
-<header class="topbar">
+<header>
 
-<div class="titulo">
-Agenda Realiza Online
-</div>
+<div>Agenda Realiza Online</div>
 
-<div class="logo-centro">
-<img src="https://i.ibb.co/hF3ZzyQ0/realiza-imoveis-rio.png">
-</div>
+<img class="logo-centro" src="https://i.ibb.co/6R4yC3r/realiza-logo.png">
 
-<div class="header-buttons">
+<div>
 
 <button onclick="semanaAnterior()">⬅ Semana anterior</button>
 <button onclick="semanaProxima()">Semana seguinte ➡</button>
+<button onclick="ativarNotificacoes()">🔔 Ativar Notificações</button>
 
 </div>
 
 </header>
 
 <div class="board" id="board"></div>
-
-<div class="modal" id="modal">
-
-<div class="modal-box">
-
-<input type="hidden" id="modalData">
-
-<label>Cliente</label>
-<input id="cliente">
-
-<label>Contato</label>
-<input id="contato">
-
-<label>Imóvel</label>
-<input id="imovel">
-
-<label>Hora</label>
-<input type="time" id="hora">
-
-<label>Despertar antes (minutos)</label>
-<input type="number" id="despertar" value="10">
-
-<label>Observação</label>
-<textarea id="obs"></textarea>
-
-<button onclick="salvarVisita()">Salvar</button>
-<button onclick="fecharModal()">Cancelar</button>
-
-</div>
-
-</div>
 
 </body>
 </html>
