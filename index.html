@@ -25,10 +25,15 @@ const db=getFirestore(app);
 const dias=["Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
 
 let cacheVisitas=[];
+let alarmesDisparados={};
 let offsetSemana=0;
 
 let visitaCopiada=null;
 let editandoId=null;
+
+let audio=new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
+
+/* DATA */
 
 function formatarDataLocal(data){
 const ano=data.getFullYear();
@@ -37,21 +42,67 @@ const dia=String(data.getDate()).padStart(2,"0");
 return `${ano}-${mes}-${dia}`;
 }
 
-window.ativarNotificacoes=()=>{
-if(!("Notification" in window)){
-alert("Seu navegador não suporta notificações.");
-return;
-}
-Notification.requestPermission().then(permission=>{
-if(permission==="granted"){
-alert("🔔 Notificações ativadas!");
-}
-});
+/* MODAL ALERTA */
+
+function mostrarModalAlerta(visita){
+
+const fundo=document.createElement("div");
+
+fundo.style.position="fixed";
+fundo.style.inset="0";
+fundo.style.background="rgba(0,0,0,0.7)";
+fundo.style.display="flex";
+fundo.style.alignItems="center";
+fundo.style.justifyContent="center";
+fundo.style.zIndex="9999";
+
+fundo.innerHTML=`
+
+<div style="background:#ff0000;color:white;padding:30px;border-radius:10px;font-size:18px;font-weight:bold;text-align:center;max-width:400px">
+
+🚨 VISITA PRÓXIMA 🚨<br><br>
+
+Cliente: ${visita.nome}<br>
+Imóvel: ${visita.imovel}<br>
+Horário: ${visita.hora}<br><br>
+
+<button id="okAlarme" style="padding:10px 20px;font-size:18px;border:none;border-radius:6px;cursor:pointer;">OK</button>
+
+</div>
+
+`;
+
+document.body.appendChild(fundo);
+
+document.getElementById("okAlarme").onclick=()=>{
+fundo.remove();
 };
 
+}
+
+/* TOCAR ALARME */
+
+function tocarAlarme(visita){
+
+audio.currentTime=0;
+audio.play();
+
+setTimeout(()=>{
+audio.pause();
+audio.currentTime=0;
+},5000);
+
+mostrarModalAlerta(visita);
+
+}
+
+/* SEMANA */
+
 function getInicioSemana(){
+
 const hoje=new Date();
 const dia=hoje.getDay();
+
 const segunda=new Date(hoje);
 
 segunda.setDate(
@@ -59,7 +110,9 @@ hoje.getDate()-(dia===0?6:dia-1)+(offsetSemana*7)
 );
 
 segunda.setHours(0,0,0,0);
+
 return segunda;
+
 }
 
 window.semanaAnterior=()=>{
@@ -71,6 +124,8 @@ window.semanaProxima=()=>{
 offsetSemana++;
 montarBoard();
 };
+
+/* BOARD */
 
 function montarBoard(){
 
@@ -106,10 +161,14 @@ col.innerHTML=`
 `;
 
 board.appendChild(col);
+
 }
 
 renderizarVisitas();
+
 }
+
+/* VISITAS */
 
 function renderizarVisitas(){
 
@@ -128,6 +187,7 @@ return (a.data||"").localeCompare(b.data||"");
 visitasOrdenadas.forEach(v=>{
 
 const lista=document.getElementById("dia-"+v.data);
+
 if(!lista)return;
 
 lista.innerHTML+=`
@@ -160,98 +220,50 @@ lista.innerHTML+=`
 `;
 
 });
+
 }
 
-window.copiarCard=(id)=>{
-const v=cacheVisitas.find(x=>x.id===id);
-visitaCopiada={...v};
-alert("Visita copiada");
-};
+/* ALARME PROFISSIONAL */
 
-window.colarVisita=async(data)=>{
-if(!visitaCopiada){
-alert("Nenhuma visita copiada");
-return;
+setInterval(()=>{
+
+const agora=new Date();
+
+cacheVisitas.forEach(v=>{
+
+if(!v.data || !v.hora) return;
+
+const chave=v.id;
+
+const horarioVisita=new Date(v.data+"T"+v.hora);
+
+const horarioAlarme=new Date(horarioVisita);
+
+horarioAlarme.setMinutes(
+horarioAlarme.getMinutes()-parseInt(v.despertar||0)
+);
+
+const diferenca=(horarioAlarme-agora)/1000;
+
+if(
+diferenca<=5 &&
+diferenca>=-5 &&
+!alarmesDisparados[chave] &&
+!v.concluida &&
+horarioVisita>agora
+){
+
+alarmesDisparados[chave]=true;
+
+tocarAlarme(v);
+
 }
 
-const nova={...visitaCopiada};
-delete nova.id;
-nova.data=data;
-
-await addDoc(collection(db,"visitas"),nova);
-};
-
-window.marcarVisitado=async(id,status)=>{
-await updateDoc(doc(db,"visitas",id),{
-concluida:!status
 });
-};
 
-window.apagarVisita=async(id)=>{
-if(confirm("Apagar visita?")){
-await deleteDoc(doc(db,"visitas",id));
-}
-};
+},3000);
 
-window.editarVisita=(id)=>{
-
-const v=cacheVisitas.find(x=>x.id===id);
-editandoId=id;
-
-document.getElementById("cliente").value=v.nome;
-document.getElementById("contato").value=v.contato;
-document.getElementById("imovel").value=v.imovel;
-document.getElementById("hora").value=v.hora;
-document.getElementById("despertar").value=v.despertar||10;
-document.getElementById("obs").value=v.obs||"";
-document.getElementById("modalData").value=v.data;
-
-document.getElementById("modal").style.display="flex";
-};
-
-window.abrirModal=(data)=>{
-
-editandoId=null;
-
-document.getElementById("modalData").value=data;
-
-document.getElementById("cliente").value="";
-document.getElementById("contato").value="";
-document.getElementById("imovel").value="";
-document.getElementById("hora").value="";
-document.getElementById("despertar").value=10;
-document.getElementById("obs").value="";
-
-document.getElementById("modal").style.display="flex";
-};
-
-window.salvarVisita=async()=>{
-
-const dados={
-
-nome:document.getElementById("cliente").value,
-contato:document.getElementById("contato").value,
-imovel:document.getElementById("imovel").value,
-hora:document.getElementById("hora").value,
-despertar:document.getElementById("despertar").value,
-obs:document.getElementById("obs").value,
-data:document.getElementById("modalData").value
-
-};
-
-if(editandoId){
-await updateDoc(doc(db,"visitas",editandoId),dados);
-}else{
-dados.concluida=false;
-await addDoc(collection(db,"visitas"),dados);
-}
-
-fecharModal();
-};
-
-window.fecharModal=()=>{
-document.getElementById("modal").style.display="none";
-};
+/* FIRESTORE */
 
 window.addEventListener("DOMContentLoaded",()=>{
 
@@ -260,6 +272,7 @@ montarBoard();
 onSnapshot(collection(db,"visitas"),(snapshot)=>{
 
 cacheVisitas=[];
+alarmesDisparados={};
 
 snapshot.forEach(docSnap=>{
 const v=docSnap.data();
@@ -412,7 +425,6 @@ Agenda Realiza Online
 
 <button onclick="semanaAnterior()">⬅ Semana anterior</button>
 <button onclick="semanaProxima()">Semana seguinte ➡</button>
-<button onclick="ativarNotificacoes()">🔔 Ativar Notificações</button>
 
 </div>
 
@@ -453,4 +465,3 @@ Agenda Realiza Online
 
 </body>
 </html>
-
