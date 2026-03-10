@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -25,13 +26,12 @@ const db=getFirestore(app);
 const dias=["Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
 
 let cacheVisitas=[];
-let alarmesDisparados={};
 let offsetSemana=0;
 
 let visitaCopiada=null;
 let editandoId=null;
 
-let audio=new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
+/* DATA */
 
 function formatarDataLocal(data){
 const ano=data.getFullYear();
@@ -39,6 +39,8 @@ const mes=String(data.getMonth()+1).padStart(2,"0");
 const dia=String(data.getDate()).padStart(2,"0");
 return `${ano}-${mes}-${dia}`;
 }
+
+/* NOTIFICAÇÕES */
 
 window.ativarNotificacoes=()=>{
 
@@ -55,71 +57,7 @@ alert("🔔 Notificações ativadas!");
 
 };
 
-function mostrarModalAlerta(visita){
-
-const fundo=document.createElement("div");
-
-fundo.style.position="fixed";
-fundo.style.inset="0";
-fundo.style.background="rgba(0,0,0,0.7)";
-fundo.style.display="flex";
-fundo.style.alignItems="center";
-fundo.style.justifyContent="center";
-fundo.style.zIndex="9999";
-
-fundo.innerHTML=`
-
-<div style="background:#ff0000;color:white;padding:30px;border-radius:10px;font-size:18px;font-weight:bold;text-align:center;max-width:400px">
-
-🚨 VISITA PRÓXIMA 🚨<br><br>
-
-Cliente: ${visita.nome}<br>
-Imóvel: ${visita.imovel}<br>
-Horário: ${visita.hora}<br><br>
-
-<button id="okAlarme" style="padding:10px 20px;font-size:18px;border:none;border-radius:6px;cursor:pointer;">OK</button>
-
-</div>
-
-`;
-
-document.body.appendChild(fundo);
-
-setTimeout(()=>{
-
-const btn=document.getElementById("okAlarme");
-
-if(btn){
-btn.addEventListener("click",()=>{
-fundo.remove();
-});
-}
-
-},10);
-
-}
-
-function tocarAlarme(visita){
-
-audio.currentTime=0;
-audio.play();
-
-setTimeout(()=>{
-audio.pause();
-audio.currentTime=0;
-},5000);
-
-mostrarModalAlerta(visita);
-
-if(Notification.permission==="granted"){
-
-new Notification("Visita próxima",{
-body:`${visita.nome} - ${visita.hora}`
-});
-
-}
-
-}
+/* SEMANA */
 
 function getInicioSemana(){
 
@@ -147,6 +85,8 @@ window.semanaProxima=()=>{
 offsetSemana++;
 montarBoard();
 };
+
+/* BOARD */
 
 function montarBoard(){
 
@@ -189,6 +129,8 @@ renderizarVisitas();
 
 }
 
+/* VISITAS */
+
 function renderizarVisitas(){
 
 document.querySelectorAll(".list").forEach(l=>l.innerHTML="");
@@ -220,14 +162,12 @@ lista.innerHTML+=`
 <span>${v.imovel}</span>
 <span>${v.contato}</span>
 
-<small>⏰ ${v.despertar} min antes</small>
 <small>${v.obs||""}</small>
 
 </div>
 
 <div class="card-actions">
 
-<span onclick="abrirWhats('${v.contato}')">💬</span>
 <span onclick="copiarCard('${v.id}')">📋</span>
 <span onclick="editarVisita('${v.id}')">✏</span>
 <span onclick="marcarVisitado('${v.id}',${v.concluida})">✔</span>
@@ -243,24 +183,12 @@ lista.innerHTML+=`
 
 }
 
-window.abrirWhats=(contato)=>{
-
-let numero=contato.replace(/\D/g,"");
-
-if(numero.length==11 || numero.length==10){
-numero="55"+numero;
-}
-
-window.open(`https://wa.me/${numero}`,"_blank");
-
-};
+/* FUNÇÕES */
 
 window.copiarCard=(id)=>{
 
 const v=cacheVisitas.find(x=>x.id===id);
-
 visitaCopiada={...v};
-
 alert("Visita copiada");
 
 };
@@ -297,6 +225,8 @@ await deleteDoc(doc(db,"visitas",id));
 
 };
 
+/* EDITAR */
+
 window.editarVisita=(id)=>{
 
 const v=cacheVisitas.find(x=>x.id===id);
@@ -307,13 +237,14 @@ document.getElementById("cliente").value=v.nome;
 document.getElementById("contato").value=v.contato;
 document.getElementById("imovel").value=v.imovel;
 document.getElementById("hora").value=v.hora;
-document.getElementById("despertar").value=v.despertar;
 document.getElementById("obs").value=v.obs||"";
 document.getElementById("modalData").value=v.data;
 
 document.getElementById("modal").style.display="flex";
 
 };
+
+/* MODAL */
 
 window.abrirModal=(data)=>{
 
@@ -325,7 +256,6 @@ document.getElementById("cliente").value="";
 document.getElementById("contato").value="";
 document.getElementById("imovel").value="";
 document.getElementById("hora").value="";
-document.getElementById("despertar").value=10;
 document.getElementById("obs").value="";
 
 document.getElementById("modal").style.display="flex";
@@ -340,17 +270,20 @@ nome:document.getElementById("cliente").value,
 contato:document.getElementById("contato").value,
 imovel:document.getElementById("imovel").value,
 hora:document.getElementById("hora").value,
-despertar:document.getElementById("despertar").value,
 obs:document.getElementById("obs").value,
 data:document.getElementById("modalData").value
 
 };
 
 if(editandoId){
+
 await updateDoc(doc(db,"visitas",editandoId),dados);
+
 }else{
+
 dados.concluida=false;
 await addDoc(collection(db,"visitas"),dados);
+
 }
 
 fecharModal();
@@ -360,6 +293,8 @@ fecharModal();
 window.fecharModal=()=>{
 document.getElementById("modal").style.display="none";
 };
+
+/* FIRESTORE */
 
 window.addEventListener("DOMContentLoaded",()=>{
 
@@ -391,26 +326,38 @@ font-family:Arial;
 background:#e9eef5;
 }
 
-header{
+/* HEADER */
+
+.topbar{
 background:#0b3a66;
 color:white;
-padding:10px 15px;
+padding:10px 20px;
 display:flex;
 align-items:center;
 justify-content:space-between;
+position:relative;
 }
 
-.logo-area{
-display:flex;
-align-items:center;
-gap:10px;
+.titulo{
 font-size:20px;
 font-weight:bold;
 }
 
-.logo{
-height:45px;
+.logo-centro{
+position:absolute;
+left:50%;
+transform:translateX(-50%);
 }
+
+.logo-centro img{
+height:40px;
+}
+
+.header-buttons button{
+margin-left:5px;
+}
+
+/* BOARD */
 
 .board{
 display:flex;
@@ -498,17 +445,22 @@ padding:6px;
 
 <body>
 
-<header>
+<header class="topbar">
 
-<div class="logo-area">
-<img src="logo.png" class="logo">
-<span>Agenda Realiza Online</span>
+<div class="titulo">
+Agenda Realiza Online
 </div>
 
-<div>
+<div class="logo-centro">
+<img src="https://i.ibb.co/hF3ZzyQ0/realiza-imoveis-rio.png">
+</div>
+
+<div class="header-buttons">
+
 <button onclick="semanaAnterior()">⬅ Semana anterior</button>
 <button onclick="semanaProxima()">Semana seguinte ➡</button>
 <button onclick="ativarNotificacoes()">🔔 Ativar Notificações</button>
+
 </div>
 
 </header>
@@ -533,9 +485,6 @@ padding:6px;
 <label>Hora</label>
 <input type="time" id="hora">
 
-<label>Despertar antes</label>
-<input type="number" id="despertar">
-
 <label>Observação</label>
 <textarea id="obs"></textarea>
 
@@ -548,3 +497,4 @@ padding:6px;
 
 </body>
 </html>
+```
