@@ -274,6 +274,185 @@ window.open(`https://wa.me/${numero}`,"_blank");
 
 };
 
+/* BOTÕES */
+
+window.copiarCard=(id)=>{
+
+const v=cacheVisitas.find(x=>x.id===id);
+
+visitaCopiada={...v};
+
+alert("Visita copiada");
+
+};
+
+window.colarVisita=async(data)=>{
+
+if(!visitaCopiada){
+alert("Nenhuma visita copiada");
+return;
+}
+
+const nova={...visitaCopiada};
+delete nova.id;
+
+nova.data=data;
+
+await addDoc(collection(db,"visitas"),nova);
+
+};
+
+window.marcarVisitado=async(id,status)=>{
+
+await updateDoc(doc(db,"visitas",id),{
+concluida:!status
+});
+
+};
+
+window.apagarVisita=async(id)=>{
+
+if(confirm("Apagar visita?")){
+await deleteDoc(doc(db,"visitas",id));
+}
+
+};
+
+/* EDITAR */
+
+window.editarVisita=(id)=>{
+
+const v=cacheVisitas.find(x=>x.id===id);
+
+editandoId=id;
+
+delete alarmesDisparados[id];
+
+document.getElementById("cliente").value=v.nome;
+document.getElementById("contato").value=v.contato;
+document.getElementById("imovel").value=v.imovel;
+document.getElementById("hora").value=v.hora;
+document.getElementById("despertar").value=v.despertar;
+document.getElementById("obs").value=v.obs||"";
+document.getElementById("modalData").value=v.data;
+
+document.getElementById("modal").style.display="flex";
+
+};
+
+/* MODAL */
+
+window.abrirModal=(data)=>{
+
+editandoId=null;
+
+document.getElementById("modalData").value=data;
+
+document.getElementById("cliente").value="";
+document.getElementById("contato").value="";
+document.getElementById("imovel").value="";
+document.getElementById("hora").value="";
+document.getElementById("despertar").value=10;
+document.getElementById("obs").value="";
+
+document.getElementById("modal").style.display="flex";
+
+};
+
+window.salvarVisita=async()=>{
+
+const dados={
+
+nome:document.getElementById("cliente").value,
+contato:document.getElementById("contato").value,
+imovel:document.getElementById("imovel").value,
+hora:document.getElementById("hora").value,
+despertar:document.getElementById("despertar").value,
+obs:document.getElementById("obs").value,
+data:document.getElementById("modalData").value
+
+};
+
+if(editandoId){
+
+await updateDoc(doc(db,"visitas",editandoId),dados);
+delete alarmesDisparados[editandoId];
+
+}else{
+
+dados.concluida=false;
+await addDoc(collection(db,"visitas"),dados);
+
+}
+
+fecharModal();
+
+};
+
+window.fecharModal=()=>{
+document.getElementById("modal").style.display="none";
+};
+
+/* FIRESTORE + ALARME PROFISSIONAL */
+
+window.addEventListener("DOMContentLoaded",()=>{
+
+montarBoard();
+
+setInterval(()=>{
+
+const agora=new Date();
+
+cacheVisitas.forEach(v=>{
+
+if(!v.data || !v.hora) return;
+
+const chave=v.id;
+
+const horarioVisita=new Date(v.data+"T"+v.hora);
+
+const horarioAlarme=new Date(horarioVisita);
+
+horarioAlarme.setMinutes(
+horarioAlarme.getMinutes()-parseInt(v.despertar||0)
+);
+
+const diferenca=(horarioAlarme-agora)/1000;
+
+if(
+diferenca<=5 &&
+diferenca>=-5 &&
+!alarmesDisparados[chave] &&
+!v.concluida &&
+horarioVisita>agora
+){
+
+alarmesDisparados[chave]=true;
+
+tocarAlarme(v);
+
+}
+
+});
+
+},3000);
+
+onSnapshot(collection(db,"visitas"),(snapshot)=>{
+
+cacheVisitas=[];
+
+snapshot.forEach(docSnap=>{
+const v=docSnap.data();
+v.id=docSnap.id;
+cacheVisitas.push(v);
+});
+
+renderizarVisitas();
+
+});
+
+});
+
 </script>
 
 <style>
@@ -290,14 +469,6 @@ color:white;
 padding:15px;
 display:flex;
 justify-content:space-between;
-position:relative;
-}
-
-.logo-centro{
-position:absolute;
-left:50%;
-transform:translateX(-50%);
-height:40px;
 }
 
 .board{
@@ -389,8 +560,6 @@ padding:6px;
 <header>
 
 <div>Agenda Realiza Online</div>
-
-<img class="logo-centro" src="https://i.ibb.co/zH1yqkM/realiza-logo.png">
 
 <div>
 
